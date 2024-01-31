@@ -13,8 +13,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 - Import in all AUTOIDs from the 2021 and 2022 field seasons. 
 - Prepare the subset needed for manual acoustic analysis: 
-- Manually ID all SRE bat passes (Myotis species, Plecotus species, Barbastelles),  then subset the rest of the data to include at least one file per taxon per site and per night (method found in this study: https://www.nature.com/articles/s41598-021-89660-z). 2500 NoID passes per plot type will also be analyzed. 
-* Some of this analysis was done in 2022 and needs to be removed when subsetting to extract files for manual acoustic analysis. 
+- Copy files for the manual acoustic analysis which will include: 
+All SRE bat passes (Myotis species, Plecotus species, Barbastelles),  then a subset of the rest of the data: to include at least one file per taxon per site and per night (method found in this study: https://www.nature.com/articles/s41598-021-89660-z). 2500 NoID passes per plot type will also be analyzed. 
+* Some of this analysis was done in 2022 (MKT bats) and needs to be removed when subsetting to extract files for manual acoustic analysis. 
 
 ### Setting up work space 
 ```{r}
