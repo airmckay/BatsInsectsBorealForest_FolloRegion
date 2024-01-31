@@ -1,0 +1,165 @@
+---
+title: "CalculateDayLength"
+output: html_document
+date: "2024-01-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+library(suncalc)
+library(scales)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CalculateDayLength"
+
+file.name <- "Output_CalculateDayLength"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CalculateDayLength/Output_CalculateDayLength_2024-01-31"
+
+```
+
+# Create photoperiod dataset 
+https://nubededatos.blogspot.com/2019/02/calculate-and-plot-sunrise-and-sunset.html
+
+```{r}
+
+## Calculate photoperiod for each day in the study period
+# Use FF8-OB location as a proxy for all sites 10.760005	59.758102
+
+date1 <-  as.data.frame(seq.Date(as.Date("2021-05-14"), as.Date("2021-09-14"), by=1)) 
+names(date1) <- "date"
+date2 <- as.data.frame(seq.Date(as.Date("2022-05-04"), as.Date("2022-09-21"), by=1))
+names(date2) <- "date"
+
+dates <- merge(date1, date2, all.x = TRUE, all.y = TRUE) 
+dates.list <- dates$date
+
+photoperiod <- getSunlightTimes(
+  date = dates.list, 
+  keep = c("sunrise", "sunriseEnd", "sunset", "sunsetStart"),
+  lat = 59.758102,
+  lon = 10.760005, 
+  tz = "Europe/Berlin")
+
+##### Sunrise/set ##### 
+p21 <- photoperiod %>%
+  mutate(
+    date = as.POSIXct(date) ,
+    sunrise = sunrise - date,
+    sunset =  sunset - date,
+    year = year(date)
+  ) %>% filter(year == "2021") %>% 
+  ggplot() +
+  geom_ribbon(aes(x = date, ymin = sunrise, ymax = sunset),
+              fill = "#FDE725FF",
+              alpha = .8) + # "#ffeda0"
+  scale_x_datetime(
+    breaks = seq(as.POSIXct(min(photoperiod$date)), as.POSIXct(max(photoperiod$date)), "week"),
+    expand = c(0, 0),
+    labels = date_format("%b %y"),
+    minor_breaks = NULL
+  ) +
+  scale_y_continuous(
+    limits = c(0, 24),
+    breaks = seq(0, 24, 2),
+    expand = c(0, 0),
+    minor_breaks = NULL
+  ) +
+  labs(
+    x = "Date",
+    y = "Hours",
+    title = "2021"
+  ) +
+  theme(
+    panel.background = element_rect(fill = "#180F3EFF"),
+    panel.grid = element_line(colour = "grey", linetype = "dashed")
+  ) 
+p21
+
+p22 <- photoperiod %>%
+  mutate(
+    date = as.POSIXct(date) ,
+    sunrise = sunrise - date,
+    sunset =  sunset - date,
+    year = year(date)
+  ) %>% filter(year == "2022") %>% 
+  ggplot() +
+  geom_ribbon(aes(x = date, ymin = sunrise, ymax = sunset),
+              fill = "#FDE725FF",
+              alpha = .8) + # "#ffeda0"
+  scale_x_datetime(
+    breaks = seq(as.POSIXct(min(photoperiod$date)), as.POSIXct(max(photoperiod$date)), "week"),
+    expand = c(0, 0),
+    labels = date_format("%b %y"),
+    minor_breaks = NULL
+  ) +
+  scale_y_continuous(
+    limits = c(0, 24),
+    breaks = seq(0, 24, 2),
+    expand = c(0, 0),
+    minor_breaks = NULL
+  ) +
+  labs(
+    x = "Date",
+    y = "Hours",
+    title = "2022"
+  ) +
+  theme(
+    panel.background = element_rect(fill = "#180F3EFF"),
+    panel.grid = element_line(colour = "grey", linetype = "dashed")
+  ) 
+p22
+
+cowplot::plot_grid(p21, p22, nrow = 2)
+
+
+
+#### Day length #### 
+photoperiod1 <- photoperiod %>%
+  mutate(
+    date = as.POSIXct(date),
+    day_length = as.numeric(sunset - sunrise),
+    night = date, 
+    jnight = yday(night)) 
+
+head(photoperiod1)
+
+# write.csv(photoperiod1, file = file.path(output_today, "daylength_sunrise_sunset_surveyperiod_2021_2022.csv")) 
+
+```
+
+```
+

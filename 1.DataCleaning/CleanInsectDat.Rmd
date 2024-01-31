@@ -1,0 +1,229 @@
+---
+title: "CleanInsectData"
+output: html_document
+date: "2024-01-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Goals
+- Import annotations, drop list and metadata 
+- Use droplist to remove 512 images from 2021 at Site FF06-2022 (SD card was not formatted when it was placed in the camera)
+- Combine with metadata using FileName 
+- Filter to only include Nocturnal images 
+
+
+### Setting up work space 
+```{r}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(beepr)
+library(readr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs"
+
+file.name <- "CleanInsectData"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs/CleanInsectData_2024-01-31"
+
+```
+
+## Import data - remove the droplist images - match (relevant) metadata to annotatoins
+```{r}
+
+# Annotations for all sites combined
+annot <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CleanInsectData/fullannotations_metadata_combined_OCT_FF22.csv", 
+     delim = ",", escape_double = FALSE, col_types = cols(...1 = col_skip()),
+     trim_ws = TRUE)
+dim(annot)
+# 5474    136
+
+## Select most relevant columns 
+annot1 <- annot %>% select(c(FileName, file_size, file_attributes, 
+                             region_count, region_id,  
+                             region_shape_attributes, region_attributes, 
+                             SourceFile, datetime))
+
+dim(annot1)
+# 5474    9
+# This is much more manageable
+
+```
+
+
+
+## Explore and clean the new combined annotations/metafile
+```{r}
+## Create site and date columns 
+annot3 <- annot1 %>% 
+  dplyr::mutate(Site = case_when(
+  str_detect(FileName, "FF01") ~ "FF01",
+  str_detect(FileName, "FF02") ~ "FF02", 
+  str_detect(FileName, "FF03") ~ "FF03",
+  str_detect(FileName, "FF04") ~ "FF04",
+  str_detect(FileName, "FF05") ~ "FF05",
+  str_detect(FileName, "FF06") ~ "FF06",
+  str_detect(FileName, "FF07") ~ "FF07",
+  str_detect(FileName, "FF08") ~ "FF08",
+  str_detect(FileName, "FF09") ~ "FF09",
+  str_detect(FileName, "FF10") ~ "FF10",
+  str_detect(FileName, "FF11") ~ "FF11")) %>% 
+  dplyr::mutate(Site = factor(Site)) %>% 
+  dplyr::mutate(date = as.Date(datetime))
+summary(annot3)
+summary(annot3$Site)
+#FF01 FF02 FF03 FF04 FF05 FF06 FF07 FF08 FF09 FF10 FF11 
+# 713  478   48  729  434  277  526  193  676  903  497 
+
+
+## Quality control check 
+# ggplot(annot3) + geom_bar(aes(x = Site, fill = Site), stat = "count")
+# 
+# ggplot(annot3) + geom_point(aes(x = date , color = Site), size = 3, stat = "count") + facet_wrap(~Site) + theme()
+```
+
+
+## Clean the annotatoin columns so that these can be combined with the 2021 dataset 
+```{r}
+head(annot3$file_attributes)
+
+annot4 <- annot3 %>% 
+  dplyr::select(-c(file_size, region_shape_attributes)) %>% 
+  dplyr::mutate(ImageQuality = factor(case_when(
+                  str_detect(file_attributes, "Good") ~ "Good",
+                  str_detect(file_attributes, "Poor") ~ "Poor",
+                  str_detect(file_attributes, "Bad") ~ "Bad"))) %>% 
+  dplyr::select(-file_attributes) %>% 
+  dplyr::mutate(Certain = factor(case_when(
+    str_detect(region_attributes, "Yes") ~ "Yes", 
+    str_detect(region_attributes, "No") ~ "No",
+    TRUE ~ "NoInsects"))) %>% 
+  dplyr::select(-region_attributes) %>% 
+  rename(Region_count = region_count) %>% 
+  mutate(date = as.Date(datetime), 
+         nighttime = datetime - 12*60*60,
+         night = as.Date(nighttime)) 
+
+summary(annot4$ImageQuality) # Nice 
+ # Bad Good Poor 
+ # 522 4526  426 
+
+summary(annot4$Certain) 
+      #  No NoInsects       Yes 
+      # 689      3551      1234 
+
+##  Calculate for each image: 
+# "nInsects" = number of certain = yes 
+# "nUncertain"  = number of certain = no 
+
+annot5 <- annot4 %>% 
+  dplyr::group_by(FileName) %>% 
+  dplyr::summarize(nInsects = sum(Certain == "Yes"),
+                   nUncertain = sum(Certain == "No")) 
+
+annot4.5 <- annot4 %>% 
+  dplyr::select(-c(region_id, Certain)) %>% distinct() 
+# removes rows of duplicate images 
+
+annot6 <- left_join(annot5, annot4.5)
+annot6$SiteYear <- factor(paste0(annot6$Site, "-2022")) 
+
+bugs22 <- annot6 %>% select(-Site)
+
+effort22 <- bugs22 %>% 
+  group_by(SiteYear, night) %>% 
+  dplyr::summarize(nPhotos = sum(n())) 
+
+bugeffort <- left_join(bugs22, effort22)
+
+bugs2022 <- bugeffort %>% select(-c(SourceFile) ) 
+
+summary(bugs2022)
+```
+
+
+
+## Combine with 2021 data 
+```{r}
+bugs21 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CleanInsectData/combinedannotationsFF21w_locations_wmetadata.csv")
+dim(bugs21)
+# 17046    10
+
+bugs21 <- bugs21 %>% dplyr::select(-c(...1, ...2, Site.y, Latitude, Longitude, Type, SiteType, Date, Time)) %>% rename(Site = Site.x, FileName = Filename) %>% mutate(Site = factor(Site)) 
+
+bugs21$datetime <- as.POSIXct(bugs21$DateTimeOriginal, 
+                                    format = "%Y:%m:%d %H:%M:%OS", 
+                              tz = "Europe/Berlin")
+bugs21$date <- as.Date(bugs21$datetime)
+
+names(bugs21)
+head(bugs21)
+
+summary(bugs21$Site)
+#  FF1 FF10 FF11 FF12  FF2  FF3  FF4  FF5  FF6  FF7  FF8  FF9 
+# 1750 1476  999 1542 1620 1018 1964  957  972 1760 1331 1657
+
+bugs21$ImageQuality <- factor(bugs21$ImageQuality)
+
+names(bugs21)
+#  [1] "FileName"         "nInsects"         "nUncertain"      
+#  [4] "Site"             "Region_count"     "ImageQuality"    
+#  [7] "Annotator"        "DateTimeOriginal" "datetime"        
+# [10] "date"
+
+bugs21$SiteYear <- factor(paste0(bugs21$Site, "-2021")) 
+
+bugs21.1<- bugs21 %>% 
+  select(-c(Site, Annotator, DateTimeOriginal)) %>% 
+  mutate( nighttime = datetime - 12*60*60,
+         night = as.Date(nighttime)) 
+
+effort21 <- bugs21.1 %>% 
+  group_by(SiteYear, night) %>% 
+  dplyr::summarize(nPhotos = sum(n())) 
+
+bugs2021 <- left_join(bugs21.1, effort21)
+
+
+
+names(bugs2021)
+dim(bugs2021)
+# 17046
+names(bugs2022)
+dim(bugs2022)
+# 4755
+
+bugs <- full_join(bugs2022, bugs2021)
+dim(bugs)
+# 21801    11
+# 4755 + 17046 = 21801, good!
+
+
+#write.csv(bugs, file = file.path(output_today, "OCT_imageannotations_withmeta_combined.csv"))
+
+`````````

@@ -1,0 +1,563 @@
+---
+title: "PrepareForestInventoryData"
+output: html_document
+date: "2024-01-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(corrplot)
+library(readxl)
+library(readr)
+library(vegan)
+library
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Output"
+
+file.name <- "PrepareForestInventoryData"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Output/PrepareForestInventoryData_2024-01-31"
+
+```
+
+## Import the forest inventory datasets from both years
+```{r}
+# 2021 forest inventory data 
+forestplots21 <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input/forestplots1.csv",     delim = ";", escape_double = FALSE, trim_ws = TRUE)
+dim(forestplots21)
+# 36 14
+
+BasalArea21 <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input/Basal area summary 2021 (1).csv", 
+     delim = ";", escape_double = FALSE, trim_ws = TRUE)
+dim(BasalArea21)
+# 682  12
+
+# 2022 forest inventory data
+forestplots22 <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input/ForestPlots_2022_edited.xlsx")
+dim(forestplots22)
+# 33  9
+
+BasalArea22 <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input//BasalArea_2022.xlsx")
+dim(BasalArea22)
+# 464  18 
+
+```
+
+# Combine and clean forest inventory data
+
+```{r}
+
+################## 2021 data ##########################
+names(forestplots21)
+# [1] "Site"             "DetectorType"     "SitePlot"         "VegType"         
+#  [5] "GroundCover"      "GroundCoverRank"  "RelascopeSumAvg"  "PlotSize.m2"     
+#  [9] "CountSmallTrees"  "CountBushes"      "CountLivingTrees" "CountDeadTrees"  
+# [13] "CountSnags"       "SumTrees" 
+
+names(BasalArea21)
+#  [1] "Site"                  "DetectorType"          "DetectorID"           
+#  [4] "SitePlot"              "PlotRadius.m"          "PlotSize.m2"          
+#  [7] "basal.m2"              "basal.m2.per.plotsize" "TreeNo"               
+# [10] "Species"               "DBHavg"                "State"    
+
+
+
+## forest plots data 
+cols <- c("Site", "DetectorType", "SitePlot", "VegType", "GroundCover")
+forestplots21[cols] <- lapply(forestplots21[cols], factor)
+summary(forestplots21)
+
+## Basal area data 
+BA <- BasalArea21
+BA1 <- BA %>% rename(plotsize = PlotSize.m2, BA_plot = basal.m2,  BA_100 = basal.m2.per.plotsize)
+BA1 <- BA1 %>% unite(TreeID, c("SitePlot", "TreeNo"), remove = FALSE) 
+
+
+#format the columns 
+cols <- c("Site", "DetectorType", "DetectorID", "SitePlot", "State", "Species")
+BA1[cols] <- lapply(BA1[cols], factor)
+summary(BA1)
+BA1. <- na.omit(BA1) #no NAs
+# 682 obs
+
+BA1$BA_plot <- gsub(",", ".", BA1$BA_plot)
+BA1$BA_plot <- as.numeric(BA1$BA_plot)
+BA1$BA_100 <- gsub(",", ".", BA1$BA_100)
+BA1$BA_100 <- as.numeric(BA1$BA_100)
+BA1$PlotRadius.m <- gsub(",", ".", BA1$PlotRadius.m)
+BA1$PlotRadius.m <- as.numeric(BA1$PlotRadius.m)
+BA1$DBHavg <- gsub(",", ".", BA1$DBHavg)
+BA1$DBHavg <- as.numeric(BA1$DBHavg)
+
+summary(BA1)
+head(BA1)
+names(BA1)
+
+# Aggregate down to sum basal areas per site plot
+#BA1$SitePlot = factor(BA1$SitePlot)
+BA2 <- BA1 %>% dplyr::group_by(SitePlot) %>% dplyr::summarize(BA_plot = sum(BA_plot), BA_100 = sum(BA_100)) 
+summary(BA2)
+
+## FF5-OB had no trees in it so I need to manually insert a BA of zero for that site
+names(BA2)
+# "SitePlot" "BA_plot"  "BA_100" 
+ff5ob <- data.frame("FF5-OB", 0, 0) 
+names(ff5ob) <- c("SitePlot", "BA_plot" , "BA_100")
+head(ff5ob)
+ff5ob$SitePlot <- as.factor(ff5ob$SitePlot)
+BA3 <- rbind(BA2, ff5ob)
+summary(BA3)
+head(BA3)
+
+# Check that the levels match 
+levels(BA3$SitePlot)
+levels(forestplots21$SitePlot)
+
+forest21<- dplyr::left_join(forestplots21, BA3)
+summary(forest21)
+## 36 obs of 16 vars
+
+
+## Now drop variables we will not use moving forward and rename others so they match with both years
+
+forest21$SitePlot <- gsub("FF1-", "FF01-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF2-", "FF02-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF3-", "FF03-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF4-", "FF04-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF5-", "FF05-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF6-", "FF06-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF7-", "FF07-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF8-", "FF08-", forest21$SitePlot)
+forest21$SitePlot <- gsub("FF9-", "FF09-", forest21$SitePlot)
+
+forest21$SitePlot <- factor(forest21$SitePlot)
+levels(forest21$SitePlot)
+
+forest21x <- forest21  %>%  dplyr::select(c(SitePlot, 
+                                          VegType, GroundCover, 
+                                          CountSmallTrees, CountBushes,
+                                          CountDeadTrees, CountLivingTrees, 
+                                          CountSnags, SumTrees,
+                                          RelascopeSumAvg, PlotSize.m2,
+                                          BA_plot, BA_100)) %>% 
+  rename(VegCover = GroundCover) %>% mutate(year = "2021") %>% 
+  mutate(SitePlotYear = factor(paste0(SitePlot, "-", year))) 
+
+summary(forest21x) 
+
+#######################################################
+################## 2022 data ##########################
+#######################################################
+
+names(forestplots22)
+# [1] "Site"             "DetectorType"     "SitePlot"         "VegType"         
+#  [5] "GroundCover"      "GroundCoverRank"  "RelascopeSumAvg"  "PlotSize.m2"     
+#  [9] "CountSmallTrees"  "CountBushes"      "CountLivingTrees" "CountDeadTrees"  
+# [13] "CountSnags"       "SumTrees" 
+# 
+# [1] "Site"            "DetectorID"      "Date"            "VegType"         "VegCover"       
+# [6] "RelascopeSum1"   "RelascopeSum2"   "CountSmallTrees" "CountBushes"
+
+
+names(BasalArea22)
+#  [1] "Site"                  "DetectorType"          "DetectorID"           
+#  [4] "SitePlot"              "PlotRadius.m"          "PlotSize.m2"          
+#  [7] "basal.m2"              "basal.m2.per.plotsize" "TreeNo"               
+# [10] "Species"               "DBHavg"                "State"    
+
+### 
+## Missing columns: 
+# RelascopeSumAvg, CountLivingTrees, CountDeadTrees, CountSnags, SumTrees trees
+# The tree columns can be counted from the BA object
+
+BasalArea22$SitePlot <- factor(paste0(BasalArea22$Site, "-", BasalArea22$DetectorID))
+BasalArea22$TreeState <- BasalArea22$`State (Living/Dead/Snag)`
+
+trees <- BasalArea22 %>% 
+  dplyr::group_by(SitePlot) %>% 
+  dplyr::summarize(
+    CountLivingTrees = sum (TreeState == "L"),
+    CountDeadTrees = sum (TreeState == "D"), 
+    CountSnags = sum(TreeState == "S"),
+    SumTrees = CountDeadTrees + CountLivingTrees + CountSnags) 
+
+## Merge the trees object with the FF object 
+### First need to fix the SitePlot column so they can match with trees 
+f22 <- forestplots22 %>% 
+  mutate(SitePlot = paste0(Site, "-", DetectorID)) 
+
+f22$SitePlot <- gsub("FF1-", "FF01-", f22$SitePlot)
+f22$SitePlot <- gsub("FF2-", "FF02-", f22$SitePlot)
+f22$SitePlot <- gsub("FF3-", "FF03-", f22$SitePlot)
+f22$SitePlot <- gsub("FF4-", "FF04-", f22$SitePlot)
+f22$SitePlot <- gsub("FF5-", "FF05-", f22$SitePlot)
+f22$SitePlot <- gsub("FF6-", "FF06-", f22$SitePlot)
+f22$SitePlot <- gsub("FF7-", "FF07-", f22$SitePlot)
+f22$SitePlot <- gsub("FF8-", "FF08-", f22$SitePlot)
+f22$SitePlot <- gsub("FF9-", "FF09-", f22$SitePlot)
+
+f22$SitePlot <- factor(f22$SitePlot)
+levels(f22$SitePlot)
+## forest plots data
+
+forests22 <- left_join(f22, trees)
+
+
+# Calculate RelascopeAverage for each site
+relas <- forests22 %>% 
+  dplyr::group_by(SitePlot) %>% 
+  dplyr::summarize(RelascopeSumAvg = (RelascopeSum1 + RelascopeSum2)/2) 
+
+forests22. <- left_join(forests22, relas) %>% dplyr::select(-c(RelascopeSum1, RelascopeSum2, Date, Site, DetectorID))
+
+
+## Basal area data 
+BA <- BasalArea22
+BA1 <- BA %>% rename(BA_plot = basal.m2,  BA_100 = basal.m2.per.plotsize)
+BA1 <- BA1 %>% unite(TreeID, c("SitePlot", "Tree(stem)No"), remove = FALSE) %>% 
+  dplyr::select(-c(Notes, 'State (Living/Dead/Snag)')) 
+
+
+#format the columns 
+cols <- c("Site", "DetectorID", "SitePlot", "TreeState", "Species")
+BA1[cols] <- lapply(BA1[cols], factor)
+
+summary(BA1)
+BA1. <- na.omit(BA1) #no NAs
+# 464 obs
+
+# BA1$BA_plot <- gsub(",", ".", BA1$BA_plot)
+# BA1$BA_plot <- as.numeric(BA1$BA_plot)
+# BA1$BA_100 <- gsub(",", ".", BA1$BA_100)
+# BA1$BA_100 <- as.numeric(BA1$BA_100)
+# BA1$PlotRadius.m <- gsub(",", ".", BA1$PlotRadius.m)
+# BA1$PlotRadius.m <- as.numeric(BA1$PlotRadius.m)
+# BA1$DBHavg <- gsub(",", ".", BA1$DBHavg)
+# BA1$DBHavg <- as.numeric(BA1$DBHavg)
+
+summary(BA1)
+head(BA1)
+names(BA1)
+
+# Aggregate down to sum basal areas per site plot
+#BA1$SitePlot = factor(BA1$SitePlot)
+BA2 <- BA1 %>% dplyr::group_by(SitePlot) %>% dplyr::summarize(BA_plot = sum(BA_plot), BA_100 = sum(BA_100)) 
+summary(BA2)
+
+BAx <- BA1 %>% dplyr::select(SitePlot, PlotSize.m2)
+
+BA3 <- left_join(BA2, BAx) %>% unique() 
+
+forest22<- left_join(forests22., BA3)
+summary(forest22)
+
+forest22x <- forest22 %>% dplyr::select(c(SitePlot, 
+                                          VegType, VegCover, 
+                                          CountSmallTrees, CountBushes,
+                                          CountDeadTrees, CountLivingTrees, 
+                                          CountSnags, SumTrees,
+                                          RelascopeSumAvg, PlotSize.m2,
+                                          BA_plot, BA_100)) %>% 
+                                  mutate( year = "2022") %>% 
+                                  mutate(
+                                    SitePlotYear = factor(paste0(SitePlot, "-", year)))
+
+################## Combine years ##########################
+forests <- full_join(forest21x, forest22x) # typo for FF02-CB-2021 plot m2 
+forests$PlotSize.m2 <- gsub("283", "28.3", forests$PlotSize.m2 )
+
+dim(forests)
+# 69 15
+
+# write.csv(forests, file = file.path(output_today, "summary forest structure 2022 and 2021.csv"))
+
+```
+
+
+
+## PCA of habitat variables for each site plot year 
+
+### SUPPLEMENTARY MATERIALS FIGURE
+```{r}
+forests1 <- forests %>% mutate(VegCover = factor(VegCover)) 
+## Make continuous variable from vegcover 
+levels(forests1$VegCover)
+# [1] "Full"               "Intermediate"       "Intermediate, full" "Lush"              
+# [5] "Lush, full"         "Sparse" 
+
+forests1.5 <- forests %>%  
+  mutate(VegCoverRank = case_when(
+    VegCover == "Sparse" ~ 1,
+    VegCover == "Intermediate" ~ 2,
+    VegCover == "Intermediate, full" ~ 3,
+    VegCover == "Full" ~ 4,
+    VegCover == "Lush" ~ 5,
+    VegCover == "Lush, full" ~ 5)) %>% 
+  mutate(PlotType = factor(case_when(
+    str_detect(SitePlot, "-CB") ~ "Canopy", 
+    str_detect(SitePlot, "-IB") ~ "Interior", 
+    str_detect(SitePlot, "-OB") ~ "Open"
+  ))) %>% 
+  rename(BasalArea = BA_100)  
+  
+names(forests1.5)
+# [1] "SitePlot"         "VegType"          "VegCover"         "CountSmallTrees" 
+#  [5] "CountBushes"      "CountDeadTrees"   "CountLivingTrees" "CountSnags"      
+#  [9] "SumTrees"         "RelascopeSumAvg"  "PlotSize.m2"      "BA_plot"         
+# [13] "BasalArea"           "year"             "SitePlotYear"     "VegCoverRank"    
+# [17] "PlotType"
+
+table(forests1.5$VegCoverRank)
+# 1  2  3  4  5 
+#  8 18  1 34  8 
+
+table(forests1.5$PlotType)
+  # Canopy Interior     Open 
+  #     23       23       23 
+
+forests1.5$PlotType <- factor(forests1.5$PlotType, levels=c("Open", "Interior", "Canopy"))
+levels(forests1.5$PlotType)
+plot.cols <- c("#F57969", "#669F85", "#6D5AA1") 
+
+mat <- forests1.5%>% 
+  select(c(
+    SitePlotYear, VegCoverRank,
+    CountSmallTrees, CountBushes, CountSnags, SumTrees,
+    RelascopeSumAvg, BasalArea)) %>% 
+  distinct() %>% 
+  column_to_rownames(var = "SitePlotYear")
+summary(mat)
+
+#### Scale continuous variables for ordination and modelling
+mat1 <- mat # Use this to scale all continuous numerical data
+mat1[,1:7]=scale(mat1[,1:7], scale=TRUE) #
+summary(mat1)
+
+
+################################################################
+## PCA 
+################################################################
+
+trait.pca <- rda(mat1) # used and available points together 
+biplot(trait.pca) 
+# simple plot 
+screeplot(trait.pca) 
+# how much of each axis describes the variation in the data 
+# PC1 Explains most of the variation. Big difference between PC2 and PC3. 
+summary(trait.pca)
+pca.summary <- summary(trait.pca)
+## In our case, 'species' are the different LiDAR variables and sites are the different bat locations. 
+meta <- forests1.5 %>% select(SitePlotYear, year, PlotType) %>% distinct() 
+
+trait.loadings <- as.data.frame(pca.summary$species) %>% 
+  mutate(trait = rownames(.))  
+head(trait.loadings)
+
+# for now, do not include bat.id
+## Build meta data to be reattached in plotting
+rownames(meta) <- meta$SitePlotYear
+meta$gen.spe <- meta$SitePlotYear
+
+# Scores for all the different SitePlotYears
+sp.scores <- as.data.frame(pca.summary$sites) %>% 
+  mutate(gen.spe = rownames(.)) %>% inner_join(meta) 
+# 
+traittable <- trait.loadings  %>% 
+  dplyr::select(trait, PC1, PC2)
+#write.csv(traittable, file = file.path(output_today, "bothbats_allpts_PCA1_2_table.csv")) # 
+#31.01.2024
+
+### Compare trait loadings for bat locations with Pearson's correlation of PC1 and PC2, as well as of the LiDAR variables with each other 
+spdf <- left_join(sp.scores, forests1.5, by = "SitePlotYear")
+names(spdf)
+spdf1 <- spdf %>% dplyr::select(c(SitePlotYear, 
+                                  PC1, PC2, 
+                                  VegCoverRank, 
+                                  BasalArea, RelascopeSumAvg,
+                                  SumTrees, CountSnags, 
+                                  CountLivingTrees, CountDeadTrees, 
+                                  CountBushes, CountSmallTrees))  
+spdf2 <- left_join(spdf1, meta)
+
+corrplot(cor(mat1))
+cortab <- as.data.frame(cor(mat1))
+#windows()
+
+cortab1 <- cortab[1:2,]
+cortab2 <- t(cortab1) # Table of the values for further comparing
+
+#write.csv(cortab2, file = file.path(output_today, "cortab2.csv"))
+
+
+# PC1 and PC2 -euclidean distance
+pca.ggplot <- ggplot() +
+  geom_point(
+    data = sp.scores, 
+    aes(x = PC1, y = PC2, color = PlotType), 
+    size = 3, alpha = 0.7) +
+  scale_color_manual(values = plot.cols) +
+  stat_ellipse(data = sp.scores, 
+    aes(x = PC1, y = PC2, 
+        color = PlotType, fill = PlotType),
+    geom = "polygon", 
+    linewidth = 1, alpha = 0.2,  type = "euclid") +
+    scale_fill_manual(values = plot.cols) +
+  geom_segment(data = trait.loadings, 
+               aes(x = 0, xend = PC1/2, y = 0, yend = PC2/2), lwd = 0.1) + 
+  geom_text(
+    data = trait.loadings, 
+    aes(x = PC1/2, y = PC2/2+0.1, label = trait)) + 
+  theme_bw() +
+  theme(legend.position = "none") 
+
+pca.ggplot
+
+
+# PC1 and PC2 - normal 
+# pca.ggplot <- ggplot() +
+#   geom_point(
+#     data = sp.scores, 
+#     aes(x = PC1, y = PC2, color = PlotType), 
+#     size = 3, alpha = 0.7) +
+#   scale_color_manual(values = plot.cols) +
+#   stat_ellipse(data = sp.scores, 
+#     aes(x = PC1, y = PC2, 
+#         color = PlotType, fill = PlotType),
+#     geom = "polygon", 
+#     size = 1, alpha = 0.2,  type = "norm") +
+#     scale_fill_manual(values = plot.cols) +
+#   geom_segment(data = trait.loadings, 
+#                aes(x = 0, xend = PC1/2, y = 0, yend = PC2/2), lwd = 0.1) + 
+#   geom_text(
+#     data = trait.loadings, 
+#     aes(x = PC1/2, y = PC2/2+0.1, label = trait), 
+#     size = 3) + 
+#   theme_bw() +
+#   theme(legend.position = "none") 
+# 
+# pca.ggplot
+
+## Table of PCA for further informing variable selection 
+traittable <- trait.loadings  %>% 
+  dplyr::select(trait, PC1, PC2)
+
+# write.csv(traittable, file = file.path(output_today, "forestinvent_PCA1_2_table.csv")) #
+
+
+## Plot the relationship between each forest density measurement and PC1
+sp1 <- sp.scores %>% select(c(PC1, PC2, SitePlotYear)) %>% distinct()
+forest.f <- forests1.5 %>% select(c(SitePlotYear, VegCoverRank, BasalArea,
+                               RelascopeSumAvg, SumTrees, CountSnags,
+                               CountSmallTrees, CountBushes)) %>% distinct()
+
+forests2 <- left_join(forest.f, sp1)
+summary(forests2)
+
+pc1 <- forests2 %>% select(SitePlotYear, PC1) 
+
+```
+
+
+## Describe which forest structure variables PC1 is mostly highly correlated with 
+
+### SUPPLEMENTARY MATERIALS FIGURE
+```{r}
+
+
+names(mat1)
+# [1] "VegCoverRank"    "CountSmallTrees" "CountBushes"     "CountSnags"     
+# [5] "SumTrees"        "RelascopeSumAvg" "BA_plot"
+
+VegCoverRank <- ggplot(
+  forests2, aes(x = PC1, y = VegCoverRank)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+VegCoverRank
+
+CountSmallTrees <- ggplot(
+  forests2, aes(x = PC1, y = CountSmallTrees)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+CountSmallTrees
+
+CountBushes <- ggplot(
+  forests2, aes(x = PC1, y = CountBushes)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+CountBushes
+
+CountSnags <- ggplot(
+  forests2, aes(x = PC1, y = CountSnags)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+CountSnags
+
+SumTrees <- ggplot(
+  forests2, aes(x = PC1, y = SumTrees)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+SumTrees
+
+RelascopeSumAvg <- ggplot(
+  forests2, aes(x = PC1, y = RelascopeSumAvg)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+RelascopeSumAvg
+
+BasalArea <- ggplot(
+  forests2, aes(x = PC1, y = BasalArea)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#DAB82A") +
+  stat_poly_eq() +
+  theme_minimal() 
+BasalArea
+
+
+plot_grid(VegCoverRank, CountBushes, CountSmallTrees, CountSnags,
+          SumTrees, RelascopeSumAvg, BasalArea, ncol = 2) + theme(text = element_text(size=20))
+
+```
+

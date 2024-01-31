@@ -1,0 +1,532 @@
+---
+title: "HemispherePhotoAnalysis"
+output: html_document
+date: "2024-01-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+##########          Hemiphot.R         ##########
+# This script is intended to calculate light indices and more from hemispherical images
+# read the manual and helpfile to use this script.
+# HemiphotTest.R provides examples of all single calculations
+# HemiphotBatch.R provides examples of batch calculations for a 
+# number of images in one directory
+#
+# to be able to use Hemophot.R yo will need to install the functions
+# with the command >source("Hemiphot.R")
+# provided the script is foudn in our working directory
+#######END          Hemiphot.R         ##########
+
+
+
+
+
+##########          How to cite the use of Hemiphot         ##########
+#If you use Hemiphot.R for your research or work please cite as:
+#Hans ter Steege (2018) Hemiphot.R: Free R scripts to analyse hemispherical 
+#photographs for canopy openness, leaf area index and photosynthetic 
+#active radiation under forest canopies.  
+#Unpublished report. Naturalis Biodiversity Center, Leiden, The Netherlands
+#https://github.com/Hans-ter-Steege/Hemiphot
+#######END          How to cite the use of Hemiphot         ##########
+
+
+
+
+
+### This is the batch script for Hemiphot.R
+### Here you can run all functions and store 
+### all data by file
+
+
+###### NOTES ########
+
+# This script is modified to suit data collected for the Follo Forest Project from the summer of 2021 and 2022 to calculate Canopy Openness (CO) and Leaf Area Index (LAI). Simple visualizations and preliminary analyses comparing these values across sites are included here as well. 
+
+###############################################
+
+##########          load libraries and source files          ##########
+library(tidyverse)
+library(cowplot)
+library(scales)
+library(dplyr)
+library(jpeg) 
+library(lme4)
+source("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/Hemiphot.R")        # functions to calculate all results
+
+#remotes::install_github("coolbutuseless/ggpattern")
+library(ggpattern)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/HemispherePhotos"
+
+file.name <- "HemispherePhotoAnalysis"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/HemispherePhotos/HemispherePhotoAnalysis_2024-01-31"
+
+
+```
+
+
+## 2021 data 
+```{r}
+##########          initialize site and image data          ##########
+
+# These paramenters are not relevant to calculating Canopy Openness or Leaf Area Index. Default / example paraemters kept here for future reference. 
+
+### Location parameters
+
+#days = seq(15,360,30)   # roughly each mid of the 12 months
+
+#location.latitude   = 1.487
+#location.altitude   = 0
+#location.day        = 150
+#location.days       = seq(15,360,30)   # roughly each mid of the 12 months
+
+### Image parameters
+## determine in Hemiphot.R and fill in here for batch processing
+location.cx         = 1504             # x coordinate of center
+location.cy         =  975             # y coordinate of center
+location.cr         =  900             # radius of circle
+location.threshold  = 0.65
+
+### atmospheric parameters
+# location.tau = 0.6 
+# Between 0.1 and 1.0, default 0.6. The transmission of 1 optical
+# airmass (use 1.0 if you want to know the amount of light on top of
+# the atmosphere). Input as decimal.
+# location.uoc = 0.15
+# Uniform Overcast Sky
+
+#######END          initialize site and image data          ##########
+
+
+
+
+
+
+##########          load image namess          ##########
+
+### We assume colour images
+### in a subdirectory images
+### load all JPG file names in a list
+
+all.images = list.files(path="C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/HemispherePhotosEdited2021", pattern = ".jpg")
+
+nr.images = length(all.images); nr.images
+
+## Create data frame to hold all results 
+
+### ** Modified to only include CanOpen and LAI ** 
+
+all.data = data.frame(matrix(0, nr.images, 3))
+names(all.data) = c("File", "CanOpen", "LAI")
+all.data[,1] = all.images
+
+## now the batch can start
+#t1 = Sys.time()
+for(i in 1:nr.images){    
+  ## read file
+  image = readJPEG(paste("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/HemispherePhotosEdited2021/", all.images[i],sep = ""), native = F)     
+  ## if native = T creates a raster, else an array
+  
+  ## conver to Hemi image
+  image = Image2Hemiphot(image)
+  
+  ## select blue channel
+  image = SelectRGB(image, "B")
+  
+  #threshold
+  image = ThresholdImage(im = image, th = location.threshold, draw.image = F)
+  
+  # canopy openness
+  gap.fractions = CalcGapFractions(image)
+  all.data[i,2] = CalcOpenness(fractions = gap.fractions)
+  
+  ## calculate LAI according to Licor's LAI Analyzer 
+  all.data[i,3] = CalcLAI(fractions = gap.fractions)
+}
+
+#t2 = Sys.time()
+
+
+##time per image
+#(t2 - t1)/nr.images
+#Time difference of 0.XXXX secs
+
+head(all.data)
+
+## save data
+#write.csv(all.data, file = file.path(output_today, "HemiphotOutput.65_final2021.csv"))
+
+
+####################################################
+
+# Create a new column to distinguish between site types 
+
+######################  H65  ########################
+
+H65 <- all.data
+H65 <- as_tibble(H65)
+
+# Create a new column to distinguish between site types 
+
+H65 %>%  
+  mutate(Type = case_when(
+    endsWith(File, "_IB.jpg") ~ "Interior Forest",
+    endsWith(File, "_OB.jpg") ~ "Open Forest",
+    endsWith(File, "_CB.jpg") ~ "Canopy Forest"
+  )) -> H65
+H65$Type <- as.factor(H65$Type)
+head(H65)
+
+# Create a new column to distinguish between site names 
+
+H65$Site <- sub("_IB.jpg", "", H65$File)
+H65$Site <- sub("_OB.jpg", "", H65$Site)
+H65$Site <- sub("_CB.jpg", "", H65$Site)
+H65$Site <- as.factor(H65$Site)
+
+head(H65)
+ 
+#Subset data based on site type 
+
+H65 %>% filter(Type == "Interior Forest") -> H65_IB
+summary(H65_IB$CanOpen)
+ #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ # 0.0940  0.2015  0.2409  0.2343  0.2570  0.3759 
+
+
+print(var(H65_IB$CanOpen))
+# 0.004751281
+print(sd(H65_IB$CanOpen))
+# 0.06892954
+
+H65 %>% filter(Type == "Open Forest") -> H65_OB
+summary(H65_OB$CanOpen)
+ #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ # 0.1601  0.2526  0.2896  0.3074  0.3654  0.4498 
+
+print(var(H65_OB$CanOpen))
+# 0.008162474
+print(sd(H65_OB$CanOpen))
+# 0.09034641
+
+
+######################################################
+
+
+########### Visualizing Canopy Openness #############
+head(H65)
+dev.off()
+M65 <- H65 %>% ggplot() + geom_density(aes(x = CanOpen, fill = Type), alpha = 0.2) + ggtitle("Theshold = 0.65") 
+
+
+M65
+
+######################################################
+
+g65 <- 
+  ggplot(H65, aes(x=File, y=CanOpen, fill=Site, pattern=Type)) +
+  geom_bar_pattern(stat="identity", position=position_dodge(preserve = "single"),
+                   color = "black", 
+                   pattern_fill = "black",
+                   pattern_angle = 45,
+                   pattern_density = 0.1,
+                   pattern_spacing = 0.025,
+                   pattern_key_scale_factor = 0.6) + 
+  scale_pattern_manual(values = c("Interior Forest" = "stripe", "Open Forest" = "none"))+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  ggtitle("Theshold = 0.65") + 
+  scale_x_discrete(name = "Sites", 
+  labels = c("FF1", " " , "FF2", " ", "FF3", " ", "FF4", " ", "FF5", " ", "FF6", " ", "FF7", " ", "FF8", " ", "FF9", " ", "FF10", " ", "FF11", " ", "FF12", " ")) +
+  guides(pattern = guide_legend(override.aes = list(fill = "white")),
+         fill = guide_legend(override.aes = list(pattern = "none")))
+
+g65
+
+####################################################################
+
+
+################# Visualizing Leaf Area Index ######################
+
+l65 <- ggplot(H65, aes(LAI, fill = Type))
+
+L65 <- l65 + geom_density(alpha=0.2) + ggtitle("Theshold = 0.65") + theme(legend.position = "none")
+
+
+L65
+
+
+
+p65 <- 
+  ggplot(H65, aes(x=File, y=LAI, fill=Type)) +
+  geom_bar(stat="identity", position=position_dodge())+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  ggtitle("Theshold = 0.65") + 
+  scale_x_discrete(name = "Sites", 
+                   breaks = c("FF1-IB.JPG", "FF1-OB.JPG",  "FF10-IB.JPG", "FF10-OB.JPG", "FF11-IB.JPG", "FF11-OB.JPG", "FF12-IB.JPG", "FF12-OB.JPG",  "FF2-IB.JPG", "FF2-OB.JPG",  "FF3-IB.JPG", "FF3-OB.JPG", "FF4-IB.JPG", "FF4-OB.JPG", "FF5-IB.JPG", "FF5-OB.JPG",  "FF6-IB.JPG", "FF6-OB.JPG", "FF7-IB.JPG", "FF7-OB.JPG", "FF8-IB.JPG",  "FF8-OB.JPG",  "FF9-IB.JPG",  "FF9-OB.JPG"), 
+                   labels = c("FF1", " " , "FF2", " ", "FF3", " ", "FF4", " ", "FF5", " ", "FF6", " ", "FF7", " ", "FF8", " ", "FF9", " ", "FF10", " ", "FF11", " ", "FF12", " ")) +
+  theme(legend.position = "none") 
+
+p65
+
+
+
+P65 <- 
+  ggplot(H65, aes(x=File, y=LAI, fill=Site, pattern=Type)) +
+  geom_bar_pattern(stat="identity", position=position_dodge(preserve = "single"),
+                   color = "black", 
+                   pattern_fill = "black",
+                   pattern_angle = 45,
+                   pattern_density = 0.1,
+                   pattern_spacing = 0.025,
+                   pattern_key_scale_factor = 0.6) + 
+  scale_pattern_manual(values = c(
+    "Interior Forest" = "stripe", "Open Forest" = "none"))+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  ggtitle("Theshold = 0.65") + 
+  scale_x_discrete(name = "Sites", 
+                   labels = c("FF1", " " , "FF2", " ", "FF3", " ", "FF4", " ", "FF5", " ", "FF6", " ", "FF7", " ", "FF8", " ", "FF9", " ", "FF10", " ", "FF11", " ", "FF12", " ")) +
+  guides(pattern = guide_legend(override.aes = list(fill = "white")),
+         fill = guide_legend(override.aes = list(pattern = "none")))
+
+P65
+
+H65.21 <- H65
+
+```
+
+
+
+## 2022 data 
+```{r}
+
+all.images = list.files(path="C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/HemispherePhotosEdited2022/", pattern = ".jpg")
+
+nr.images = length(all.images); nr.images
+
+## Create data frame to hold all results 
+
+### ** Modified to only include CanOpen and LAI ** 
+
+all.data = data.frame(matrix(0, nr.images, 3))
+names(all.data) = c("File", "CanOpen", "LAI")
+all.data[,1] = all.images
+
+## now the batch can start
+#t1 = Sys.time()
+for(i in 1:nr.images){    
+  ## read file
+  image = readJPEG(paste("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/HemispherePhotosEdited2022/", all.images[i],sep = ""), native = F)     
+  ## if native = T creates a raster, else an array
+  
+  ## conver to Hemi image
+  image = Image2Hemiphot(image)
+  
+  ## select blue channel
+  image = SelectRGB(image, "B")
+  
+  #threshold
+  image = ThresholdImage(im = image, th = location.threshold, draw.image = F)
+  
+  # canopy openness
+  gap.fractions = CalcGapFractions(image)
+  all.data[i,2] = CalcOpenness(fractions = gap.fractions)
+  
+  ## calculate LAI according to Licor's LAI Analyzer 
+  all.data[i,3] = CalcLAI(fractions = gap.fractions)
+}
+
+#t2 = Sys.time()
+
+
+##time per image
+#(t2 - t1)/nr.images
+#Time difference of 0.XXXX secs
+
+head(all.data)
+
+## save data
+#write.csv(all.data, file = file.path(output_today, "HemiphotOutput.65_final2022.csv")) 
+
+############ Compare different thresholds ############
+
+# Create a new column to distinguish between site types 
+
+######################  H65  ########################
+
+H65 <- all.data
+H65 <- as_tibble(H65)
+
+# Create a new column to distinguish between site types 
+
+H65 %>%  
+  mutate(Type = case_when(
+    endsWith(File, "_IB.jpg") ~ "Interior Forest",
+    endsWith(File, "_OB.jpg") ~ "Open Forest",
+    endsWith(File, "_CB.jpg") ~ "Canopy Forest"
+  )) -> H65
+H65$Type <- as.factor(H65$Type)
+head(H65)
+
+# Create a new column to distinguish between site names 
+
+H65$Site <- sub("_IB.jpg", "", H65$File)
+H65$Site <- sub("_OB.jpg", "", H65$Site)
+H65$Site <- sub("_CB.jpg", "", H65$Site)
+H65$Site <- as.factor(H65$Site)
+
+head(H65)
+ 
+#Subset data based on site type 
+
+H65 %>% filter(Type == "Interior Forest") -> H65_IB
+summary(H65_IB$CanOpen)
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.09473 0.12834 0.17544 0.17768 0.22686 0.25349 
+
+
+print(var(H65_IB$CanOpen))
+# 0.0034318
+print(sd(H65_IB$CanOpen))
+# 0.05858157
+
+H65 %>% filter(Type == "Open Forest") -> H65_OB
+summary(H65_OB$CanOpen)
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  0.1709  0.2863  0.3582  0.3577  0.4152  0.5349 
+print(var(H65_OB$CanOpen))
+# 0.01186248
+print(sd(H65_OB$CanOpen))
+# 0.108915
+
+H65 %>% filter(Type == "Canopy Forest") -> H65_OB
+summary(H65_OB$CanOpen)
+ # 0.1024  0.1807  0.2251  0.2329  0.2778  0.4345
+
+######################################################
+
+
+########### Visualizing Canopy Openness #############
+head(H65)
+#dev.off()
+M65 <- H65 %>% ggplot() + geom_density(aes(x = CanOpen, fill = Type), alpha = 0.2) + ggtitle("Theshold = 0.65") 
+
+
+M65
+
+######################################################
+
+g65 <- 
+  ggplot(H65, aes(x=File, y=CanOpen, fill=Site, pattern=Type)) +
+  geom_bar_pattern(stat="identity", position=position_dodge(preserve = "single"),
+                   color = "black", 
+                   pattern_fill = "black",
+                   pattern_angle = 45,
+                   pattern_density = 0.1,
+                   pattern_spacing = 0.025,
+                   pattern_key_scale_factor = 0.6) + 
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  ggtitle("Theshold = 0.65") + 
+  scale_x_discrete(name = "Sites", 
+  labels = c("FF1", " " , " " ,"FF2", " ", " " , 
+             "FF3", " ", " " , "FF4", " " , " ", 
+             "FF5", " " , " ", "FF6", " " , " ", 
+             "FF7"," " , " ", "FF8", " " , " ", 
+             "FF9"," " , " ", "FF10", " " ," ", 
+             "FF11", " "," " )) +
+  guides(pattern = guide_legend(override.aes = list(fill = "white")),
+         fill = guide_legend(override.aes = list(pattern = "none")))
+
+g65
+
+####################################################################
+
+
+################# Visualizing Leaf Area Index ######################
+
+l65 <- ggplot(H65, aes(LAI, fill = Type))
+
+L65 <- l65 + geom_density(alpha=0.2) + ggtitle("Theshold = 0.65") + theme(legend.position = "none")
+
+
+L65
+
+
+
+p65 <- 
+  ggplot(H65, aes(x=File, y=LAI, fill=Type)) +
+  geom_bar(stat="identity", position=position_dodge())+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  ggtitle("Theshold = 0.65")  +
+  theme(legend.position = "none") 
+
+p65
+
+
+
+P65 <- 
+  ggplot(H65, aes(x=File, y=LAI, fill=Site, pattern=Type)) +
+  geom_bar_pattern(stat="identity", position=position_dodge(preserve = "single"),
+                   color = "black", 
+                   pattern_fill = "black",
+                   pattern_angle = 45,
+                   pattern_density = 0.1,
+                   pattern_spacing = 0.025,
+                   pattern_key_scale_factor = 0.6) + 
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  ggtitle("Theshold = 0.65") + 
+  guides(pattern = guide_legend(override.aes = list(fill = "white")),
+         fill = guide_legend(override.aes = list(pattern = "none")))
+
+P65
+
+H65.22 <- H65
+
+```
+
+
+## Combine the two years 
+```{r}
+head(H65.21)
+#   File        CanOpen   LAI Type            Site 
+#   <chr>         <dbl> <dbl> <fct>           <fct>
+# 1 FF01_IB.jpg  0.243   2.34 Interior Forest FF01 
+# 2 FF01_OB.jpg  0.160   4.24 Open Forest     FF01 
+# 3 FF02_IB.jpg  0.236   2.76 Interior Forest FF02 
+# 4 FF02_OB.jpg  0.307   2.52 Open Forest     FF02 
+# 5 FF03_IB.jpg  0.0940  4.45 Interior Forest FF03 
+# 6 FF03_OB.jpg  0.253   2.88 Open Forest     FF03 
+
+head(H65.22)
+#   File        CanOpen    LAI Type            Site 
+#   <chr>         <dbl>  <dbl> <fct>           <fct>
+# 1 FF01_CB.jpg   0.165 Inf    Canopy Forest   FF01 
+# 2 FF01_IB.jpg   0.146   3.72 Interior Forest FF01 
+# 3 FF01_OB.jpg   0.273   4.80 Open Forest     FF01 
+# 4 FF02_CB.jpg   0.225   4.41 Canopy Forest   FF02 
+# 5 FF02_IB.jpg   0.175   3.70 Interior Forest FF02 
+# 6 FF02_OB.jpg   0.358   3.42 Open Forest     FF02 
+```
+
