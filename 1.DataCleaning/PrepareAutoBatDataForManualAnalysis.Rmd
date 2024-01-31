@@ -1,0 +1,1247 @@
+---
+title: "PrepareAutoBatDataForManualAnalysis"
+output: html_document
+date: "2023-10-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+# Goals: 
+
+- Import in all AUTOIDs from the 2021 and 2022 field seasons. 
+- Prepare the subset needed for manual acoustic analysis: 
+- Manually ID all SRE bat passes (Myotis species, Plecotus species, Barbastelles),  then subset the rest of the data to include at least one file per taxon per site and per night (method found in this study: https://www.nature.com/articles/s41598-021-89660-z). 2500 NoID passes per plot type will also be analyzed. 
+* Some of this analysis was done in 2022 and needs to be removed when subsetting to extract files for manual acoustic analysis. 
+
+### Setting up work space 
+```{r}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(beepr)
+library(readr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs"
+
+file.name <- "PrepareAutoBatDataForManualAnalysis"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs/PrepareAutoBatDataForManualAnalysis_2024-01-31"
+
+```
+
+
+### Import 2021 and 2022 datasets and combine 
+I show my workflow but have made it possible to skip to the point where you import the simplified dataset of all bat passes from both seasons, with noise files removed. 
+```{r}
+################################################################################
+## Import 2021 data
+################################################################################
+
+# 
+# bats21 <-  read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/Extraction FF21_AllFiles_troubleshooting_columns_included_SitePlot.csv", col_types = cols(...1 = col_skip()))
+# # 484303 obs of 58 variables
+# 
+# # remove some redundant columns, identify the main auto id column
+# b21_df <- bats21 %>% dplyr::select(-c(
+#   INDIR1, INDIR2, INDIR3, INDIR4,
+#   OUTDIR_simple, OUTDIR_simple1,
+#   OUTDIR_simple2, OUTDIR_simple3,
+#   OUTDIR_simple4)) %>% dplyr::mutate(autoid = factor(AUTO.ID..))
+# 
+# # Format the location columns and
+# b21_df <- b21_df %>% mutate(Site = factor(Site),
+#                             SitePlot = factor(SitePlot),
+#                             Plot = case_when(
+#                             str_detect(SitePlot, "-OB") ~ "Open",
+#   str_detect(SitePlot, "-CB") ~ "Canopy",
+#   str_detect(SitePlot, "-IB") ~ "Interior")) %>% mutate(Plot = factor(Plot))
+# 
+
+
+################################################################################
+## Import 2022 data
+################################################################################
+# 
+# 
+# bats22 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2022_AutomaticallyProcessed_BatAcousticData_allsitescombined_unedited.csv")
+# # 494268 obs
+# 
+# # Create a SitePlot column and format the other columns
+# bats22$INDIR1 <- gsub("\\", "/", bats22$INDIR, fixed = TRUE)
+# head(bats22$INDIR1)
+# # "\\\\largefile.nmbu.no\\Project\\FolloForest2021\\FolloForest2022\\Acoustics\\FF07\\FF07-IB\\DATA\\FF07-IB_05.07.2022"
+# 
+# b22_inventory <- bats22 %>% select(-1) %>% mutate(map = str_remove(INDIR1, "//largefile.nmbu.no/Project/FolloForest2021/FolloForest2022/Acoustics/"))
+# head(b22_inventory$map)
+# # "FF07/FF07-IB/DATA/FF07-IB_05.07.2022"
+# 
+# # Parse out the different directories - some directories will have two data folders.
+# cols <- c("Site", "SitePlot", "DATA", "Collection")
+# b22_inventory1 <- b22_inventory %>% tidyr::separate(col = map,
+#                                                              sep = "/",
+#                                                              into = cols,
+#                                                              remove = FALSE)
+# # parse out the file paths to just get the file names
+# # For some directories there were two "Data" folders (Data/Data) so I will need to recreate a complete file list from the two columns...
+# head(b22_inventory1$SitePlot)
+# summary(b22_inventory1)
+# 
+# b22_df1 <- b22_inventory1 %>% select(-DATA) %>% mutate(Site = factor(Site),
+#                                                        SitePlot = factor(SitePlot),
+#                                                        Collection = factor(Collection))
+# 
+# summary(b22_df1)
+# 
+# ## Add a row index column
+# b22_df1$uid <- 1:nrow(b22_df1)
+# summary(b22_df1$uid )
+# 
+# ## Make one auoto ID column
+# 
+# adf1 <- b22_df1 %>% select(uid, AUTO.ID) %>% drop_na()
+# # 1323 observations
+# 
+# adf2 <- b22_df1 %>% select(uid, AUTO.ID.) %>% drop_na()
+# # 494268 obs, no NAs - so I will just use this AUTO ID column and drop the other, along with some other no longer useful columns
+# 
+# b22_df2 <- b22_df1 %>% dplyr::select(-c(uid, map, AUTO.ID, INDIR1)) %>% dplyr::mutate(autoid = factor(AUTO.ID.))
+# 
+# b22_df2 <- b22_df2 %>% mutate(Plot = case_when(
+#   str_detect(SitePlot, "-OB") ~ "Open",
+#   str_detect(SitePlot, "-CB") ~ "Canopy",
+#   str_detect(SitePlot, "-IB") ~ "Interior")) %>% mutate(Plot = factor(Plot))
+# 
+# summary(b22_df2$autoid)
+# summary(b22_df2$Site)
+# summary(b22_df2$SitePlot)
+# summary(b22_df2$Plot)
+# 
+# 
+# ### Remove noise and merge the datasets
+# 
+# b21 <- b21_df %>% filter(autoid != "Noise") %>% droplevels()
+# names(b21)
+# #  [1] "INDIR"         "OUTDIR"        "FOLDER"        "IN.FILE"       "CHANNEL"       "OFFSET"        "DURATION"      "OUT.FILE.FS"
+# #  [9] "OUT.FILE.ZC"   "DATE"          "TIME"          "HOUR"          "DATE.12"       "TIME.12"       "HOUR.12"       "AUTO.ID."
+# # [17] "PULSES"        "MATCHING"      "MATCH.RATIO"   "MARGIN"        "ALTERNATE.1"   "ALTERNATE.2"   "N"             "Fc"
+# # [25] "Sc"            "Dur"           "Fmax"          "Fmin"          "Fmean"         "TBC"           "Fk"            "Tk"
+# # [33] "S1"            "Tc"            "Qual"          "FILES"         "MANUAL.ID"     "ORGID"         "USERID"        "REVIEW.ORGID"
+# # [41] "REVIEW.USERID" "INPATHMD5"     "OUTPATHMD5FS"  "OUTPATHMD5ZC"  "AUTO.ID"       "AUTO.ID.."     "Site"          "SitePlot"
+# # [49] "Collection"    "autoid"        "Plot"
+# 
+# b21 <- b21 %>% dplyr::select(c(
+#   INDIR, OUTDIR, OUT.FILE.FS, DATE, TIME, HOUR, DATE.12, TIME.12, HOUR.12, Site, SitePlot, Plot, Collection, autoid))
+# dim(b21)
+# #222521     14
+
+# 484303 - 222521
+# 261782 noise files removed in 2021. ********
+
+########################
+
+# b21$year <- "2021"
+# 
+# b22 <- b22_df2 %>% filter(autoid != "Noise") %>% droplevels()
+# names(b22)
+# #  [1] "INDIR"         "OUTDIR"        "FOLDER"        "IN.FILE"       "CHANNEL"       "OFFSET"        "DURATION"      "OUT.FILE.FS"
+# #  [9] "OUT.FILE.ZC"   "DATE"          "TIME"          "HOUR"          "DATE.12"       "TIME.12"       "HOUR.12"       "PULSES"
+# # [17] "MATCHING"      "MATCH.RATIO"   "MARGIN"        "ALTERNATE.1"   "ALTERNATE.2"   "N"             "Fc"            "Sc"
+# # [25] "Dur"           "Fmax"          "Fmin"          "Fmean"         "TBC"           "Fk"            "Tk"            "S1"
+# # [33] "Tc"            "Qual"          "FILES"         "MANUAL.ID"     "ORGID"         "USERID"        "REVIEW.ORGID"  "REVIEW.USERID"
+# # [41] "INPATHMD5"     "OUTPATHMD5FS"  "OUTPATHMD5ZC"  "AUTO.ID."      "Site"          "SitePlot"      "Collection"    "autoid"
+# # [49] "Plot"
+# 
+# b22 <- b22 %>% dplyr::select(c(
+#   INDIR, OUTDIR, OUT.FILE.FS, DATE, TIME, HOUR, DATE.12, TIME.12, HOUR.12, Site, SitePlot, Plot, Collection, autoid))
+# dim(b22)
+# b22$year <- "2022"
+# #194415     14
+# 
+
+# 494268 - 194415
+#  299853 noise files removed in 2022 ********
+
+# 484303 + 494268
+# 978571 recording total for both years (noise included)
+
+# 194415 + 222521 # bat passes detected 2021 and 2022 combined
+# 416936 
+
+# FF <- full_join(b21, b22)
+# dim(FF)
+# #416936     15
+# summary(FF)
+# 
+# ## Notice in 2022 we used a slightly different numbering system (2022: FF02, 2021: FF2). Will fix this:
+# 
+# FF$SitePlot <- gsub("FF1-", "FF01-", FF$SitePlot)
+# FF$SitePlot <- gsub("FF2", "FF02", FF$SitePlot)
+# FF$SitePlot <- gsub("FF3", "FF03", FF$SitePlot)
+# FF$SitePlot <- gsub("FF4", "FF04", FF$SitePlot)
+# FF$SitePlot <- gsub("FF5", "FF05", FF$SitePlot)
+# FF$SitePlot <- gsub("FF6", "FF06", FF$SitePlot)
+# FF$SitePlot <- gsub("FF7", "FF07", FF$SitePlot)
+# FF$SitePlot <- gsub("FF8", "FF08", FF$SitePlot)
+# FF$SitePlot <- gsub("FF9", "FF09", FF$SitePlot)
+# 
+# FF$Site <- gsub("FF1", "FF01", FF$Site)
+# FF$Site <- gsub("FF2", "FF02", FF$Site)
+# FF$Site <- gsub("FF3", "FF03", FF$Site)
+# FF$Site <- gsub("FF4", "FF04", FF$Site)
+# FF$Site <- gsub("FF5", "FF05", FF$Site)
+# FF$Site <- gsub("FF6", "FF06", FF$Site)
+# FF$Site <- gsub("FF7", "FF07", FF$Site)
+# FF$Site <- gsub("FF8", "FF08", FF$Site)
+# FF$Site <- gsub("FF9", "FF09", FF$Site)
+# FF$Site <- gsub("FF010", "FF10", FF$Site)
+# FF$Site <- gsub("FF011", "FF11", FF$Site)
+# FF$Site <- gsub("FF012", "FF12", FF$Site)
+# 
+# FF$jnight <- yday(FF$DATE.12) # julian night
+# 
+# 
+# ## Make a siteplot-year column 
+# FF$siteplotyear <- as.factor(paste0(FF$SitePlot, sep = "-", FF$year))
+# dim(FF)
+# 416936     17
+#write.csv(FF, file = file.path(output_today, "Simple_AllBatData.CSV") )
+# # 12.10.2023 
+
+FF <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/Simple_AllBatData.CSV",
+     col_types = cols(...1 = col_skip())) ## Noise files already removed 
+dim(FF)
+# [1] 416936     17
+
+## Format columns:
+FF <- FF %>% dplyr:: mutate(Site = factor(Site), 
+                            SitePlot = factor(SitePlot),
+                            Plot = factor(Plot), 
+                            Collection = factor(Collection),
+                            year = factor(year), 
+                            autoid = factor(autoid))
+
+summary(FF$Site)
+ #  FF01   FF02   FF03   FF04   FF05   FF06   FF07   FF08   FF09   FF10   FF11   FF12 
+ # 18771  47039   8611  41662  14517   9257  18620 140831  45080  12753  47736  12059
+
+summary(FF$Plot)
+  # Canopy Interior     Open 
+  # 135620    86986   194330 
+
+summary(FF$SitePlot)
+# FF01-CB FF01-IB FF01-OB FF02-CB FF02-IB FF02-OB FF03-CB 
+#    8894    3490    6387   16167   12240   18632    4560 
+# FF03-IB FF03-OB FF04-CB FF04-IB FF04-OB FF05-CB FF05-IB 
+#     989    3062    7478    3421   30763    3757    2515 
+# FF05-OB FF06-CB FF06-IB FF06-OB FF07-CB FF07-IB FF07-OB 
+#    8245    4893     795    3569    7080    5421    6119 
+# FF08-CB FF08-IB FF08-OB FF09-CB FF09-IB FF09-OB FF10-CB 
+#   36255   32732   71844   10206    8106   26768    5008 
+# FF10-IB FF10-OB FF11-CB FF11-IB FF11-OB FF12-CB FF12-IB 
+#    2638    5107   25614   11892   10230    5708    2747 
+# FF12-OB 
+#    3604
+
+summary(FF$autoid)
+# BARBAR EPTNIL EPTSER MYOALC MYOBEC MYOBRA 
+#   2337 127540   5132    240    379  20195 
+# MYODAS MYODAU MYOMYO MYOMYS MYONAT NYCLEI 
+#   6622  25764    291  16714    627   1624 
+# NYCNOC   NoID PIPNAT PIPPIP PIPPYG PLEAUR 
+#   7662 113862   2469  11792  66006   5448 
+# PLEAUS VESMUR 
+#   1928    304
+
+## Quick and easy summary tables 
+# kbl(summarize( FF, type = "factor", variables = "siteplotyear", 
+#      caption = "2021 and 2022 Follo Forest Bat Data Summary by SitePlot")) %>%  kable_styling()
+
+```
+
+
+
+## Subsetting automatically processed data that needs to be manually analyzed 
+a - One bat pass per night per site for all other species AUTO.IDs
+b - 2500 NoID passes per plot type (7500 total)
+c - ALL SRE bats ( _Myotis_ and _Plecotus_ species + _Barbastella barbastellus_) *Minus those files that have already been analyzed. 
+
+I am showing how the subsets was done but the final datasets is read in as csv file at the end.
+```{r}
+
+
+##### a - One bat pass per night per site/plot/year for all other species AUTO.IDs
+
+
+###make a smaller subset to try on first
+# ff <- FF %>% filter(siteplotyear %in% c("FF01-OB-2021", "FF02-CB-2022") )
+# ff$jnight <- yday(ff$DATE.12)
+# names(ff)
+# #
+# #
+# ## Experimenting:
+# ############RB ##############
+# names(ff)
+# temp <- ff %>%
+#   distinct(SitePlot,year,HOUR.12,autoid,.keep_all = TRUE)%>%
+#   arrange(SitePlot,year,HOUR.12,autoid)
+# #
+# temp2 <- ff %>% dplyr::group_by(SitePlot,year,HOUR.12,autoid) %>% dplyr::summarise(n=n())
+# #
+# ############################## Works! Now test on a single AUTO.ID:
+# #
+# # randomly selected single observation of EPTNIL per night per site
+# #  EPTNIL
+# #
+sub_EPTNIL <- FF %>% dplyr::filter(autoid == "EPTNIL") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_EPTNIL)
+# 5302   17
+# #
+# #
+# ##################################################################
+# # Test to see if this works as expected
+# # How many unique nights of EPTNIL observations for FF01-CB-2021?
+# # #
+# # test1 <- FF %>%
+# #   dplyr::filter(siteplotyear == "FF01-CB-2021") %>%
+# #   dplyr::filter(autoid == "EPTNIL") %>%
+# #   droplevels() %>% mutate(jnight = as.factor(jnight))  %>%
+# #                             distinct(jnight, .keep_all = TRUE)
+# # #85 unique detector nights when EPNI was recorded for FF01-CB-2021
+# # #
+# # test1.1 <- sub_EPTNIL %>%
+# #   dplyr::filter(siteplotyear == "FF01-CB-2021") %>%
+# #   mutate(jnight = as.factor(jnight)) %>%
+# #   distinct(jnight, .keep_all = TRUE)
+# # #85 unique detector nights when EPNI was recorded for FF01-CB-2021
+# # #
+# # # Good!!
+# # #
+# ##################################################################
+# #
+# # randomly selected single observation of EPTSER per night per site
+# #   EPTSER
+sub_EPTSER <- FF %>% dplyr::filter(autoid == "EPTSER") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_EPTSER)
+# 1809   17
+# #
+# ##################################################################
+# #
+# # randomly selected single observation of NYCLEI per night per site
+# #  NYCLEI
+sub_NYCLEI <- FF %>% dplyr::filter(autoid == "NYCLEI") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_NYCLEI)
+# 992     17
+# #
+# ##################################################################
+# #
+# randomly selected single observation of NYCNOC per night per site
+  # NYCNOC
+sub_NYCNOC <- FF %>% dplyr::filter(autoid == "NYCNOC") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_NYCNOC)
+# 1810   17
+# #
+# ##################################################################
+# #
+# randomly selected single observation of PIPNAT per night per site
+  # PIPNAT
+sub_PIPNAT <- FF %>% dplyr::filter(autoid == "PIPNAT") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_PIPNAT)
+# 197  17
+# #
+# ##################################################################
+# #
+# # randomly selected single observation of PIPPIP per night per site
+#   # PIPPIP
+sub_PIPPIP <- FF %>% dplyr::filter(autoid == "PIPPIP") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_PIPPIP)
+# # 1030  17
+# #
+# ##################################################################
+# #
+# # randomly selected single observation of PIPPYG per night per site
+#   # PIPPYG
+sub_PIPPYG <- FF %>% dplyr::filter(autoid == "PIPPYG") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_PIPPYG)
+# 4450     17
+# #
+# ##################################################################
+# ##################################################################
+# #
+# # randomly selected single observation of VESMUR per night per site
+#   # VESMUR
+sub_VESMUR <- FF %>% dplyr::filter(autoid == "VESMUR") %>%
+  droplevels() %>%
+  group_by(siteplotyear, DATE.12) %>% slice_sample(n = 1) %>%
+  ungroup() %>%
+  arrange(SitePlot,year,DATE.12)
+dim(sub_VESMUR)
+# 239     17
+# #
+# ##################################################################
+# #Merge all together now:
+# #
+# ####ALTERNATIVE 2 #####
+df_list <- list(sub_EPTNIL, sub_EPTSER, sub_NYCLEI, sub_NYCNOC,
+                sub_PIPNAT, sub_PIPPIP, sub_PIPPYG, sub_VESMUR)
+#
+big_sub1 <- df_list %>% reduce(full_join)
+# 15829 obs 
+big_sub2 <- FF %>% filter(autoid %in% c("BARBAR", "MYOALC", "MYOBEC",
+                     "MYOBRA", "MYODAS", "MYODAU",
+                     "MYOMYO", "MYOMYS", "MYONAT",
+                     "PLEAUS", "PLEAUR")) %>% droplevels()
+# # 80545 obs 
+alt2 <- full_join(big_sub1, big_sub2)
+dim(alt2)
+# # 96374    17 
+# 
+
+# # randomly selected 2500 observations of NoID per plot type
+#   # OB
+OB <- FF %>% dplyr::filter(Plot == "Open" & autoid == "NoID") 
+OBx <- sample(1:nrow(OB), 2500) # these are the row numbers 
+OB_NoID <- OB[OBx, ]
+
+#   # CB
+CB <- FF %>% dplyr::filter(Plot == "Canopy" & autoid == "NoID") 
+CBx <- sample(1:nrow(CB), 2500) # these are the row numbers 
+CB_NoID <- CB[CBx, ]
+
+#   # IB
+IB <- FF %>% dplyr::filter(Plot == "Interior" & autoid == "NoID") 
+IBx <- sample(1:nrow(IB), 2500) # these are the row numbers 
+IB_NoID <- IB[IBx, ]
+
+sub_NoID_pt1 <- full_join(OB_NoID, CB_NoID)
+sub_NoID <- full_join(sub_NoID_pt1, IB_NoID) #7500 obs 
+
+alt4 <- full_join(alt2, sub_NoID)
+dim(alt4) # 103874 
+# write.csv(alt4, file = file.path(output_today, "alt4.csv")) 
+# 19.10.2023
+
+
+```
+ 
+
+# Check for inconsistencies with the filepaths 
+```{r}
+
+ff21 <- FF %>% filter(year == "2021") %>% droplevels() 
+ff22 <- FF %>% filter(year == "2022") %>% droplevels() 
+
+input_ff21 <-"P:/FolloForest2021/FolloForest2021/Processed_Data/BatAcousticData"
+input_ff22 <-"P:/FolloForest2021/FolloForest2022/Acoustics"
+
+#### FF 2021 #### 
+filepaths2021 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs/ExtractingSREBatAcousticData_2023-10-13/CompleteFilePath_ProcessedFF2021data.csv", 
+     col_types = cols(...1 = col_skip()))
+head(filepaths2021)
+#  FF1/FF1-CB/WAV_FF1-CB_06.09.2021_A/Data/NOISE/S4U12331_20210728_222711_000.wav
+tail(filepaths2021)
+#  FF9/FF9-OB/WAV_FF9-OB_30.08.2021/DATA/Data/S4U12493_20210830_042604_000.wav
+
+# Remove NOISE files 
+fp21 <- filepaths2021 %>% 
+  filter(!str_detect(my_files_ff21, 'NOISE'))
+dim(fp21)
+# 222529      1
+dim(ff21)
+# 222521     17
+# 8 more observations in the filepaths than in the data with metadata... `
+
+head(fp21)
+#  FF1/FF1-CB/WAV_FF1-CB_06.09.2021_A/Data/S4U12331_20210728_222716_000.wav
+
+## Remove the DATA folders (this is inconsistent)
+#gsub("\\", "/", bats22$INDIR, fixed = TRUE)
+fp21$fp1 <- gsub("/Data", "", fp21$my_files_ff21)
+fp21$fp2 <- gsub("/DATA", "", fp21$fp1)
+head(fp21$fp2)
+
+#"FF1/FF1-CB/WAV_FF1-CB_06.09.2021_A/S4U12331_20210728_222716_000.wav"
+incols <- c("Site", "SitePlot", "Collection", "filename")
+
+fp21.1 <- fp21 %>% 
+  tidyr::separate(col = fp2, 
+                  sep = "/",
+                  into = incols,
+                  remove = TRUE)
+
+fp21.1$filepath <- fp21.1$my_files_ff21
+fp21.1$siteplotyear <- paste0(fp21.1$SitePlot, "-2021")
+fp21.2 <- fp21.1 %>% dplyr::select(filepath, filename)
+
+ff21$filename <- ff21$OUT.FILE.FS
+
+FF2021 <- left_join(ff21, fp21.2)
+
+FF2021$fullfilepath <- paste0(input_ff21, "/", FF2021$filepath)
+
+test <- anti_join(fp21.2, ff21)
+missing2021 <- left_join(test, ff21)
+
+# 8 obs from FF04-CB collected on 30.08.2021
+# write.csv(missing2021, file = file.path(output_today, "FF2021_filepaths_but_no_metadata.csv")) 
+#24.10.2023
+
+#### 2022 ####
+filepaths2022 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs/ExtractingSREBatAcousticData_2023-10-13/CompleteFilePath_ProcessedFF2022data.csv", 
+     col_types = cols(...1 = col_skip()))
+
+fp22 <- filepaths2022 %>% 
+  dplyr::filter(!str_detect(my_files_ff22, 'NOISE')) %>% 
+  dplyr::filter(str_detect(my_files_ff22, '_000.wav'))
+dim(fp22)
+# 494974      1 # lost five observations that came from the raw/unprocessed data
+dim(ff22)
+# 194415     17
+# Looks like the FF22 data did not have noise files put into a separate folder?
+
+## Remove the DATA folders (this is inconsistent)
+#gsub("\\", "/", bats22$INDIR, fixed = TRUE)
+fp22$fp1 <- gsub("/Data", "", fp22$my_files_ff22)
+fp22$fp2 <- gsub("/DATA", "", fp22$fp1)
+fp22$fp3 <- gsub("/WAV/", "/", fp22$fp2)
+fp22$fp4 <- gsub("/New folder", "", fp22$fp3)
+
+head(fp22$fp4)
+
+
+#"FF01/FF01-CB_FF01-CB_05.07.2022/S4U12331_20220607_220237_000.wav"
+incols <- c("Site", "SitePlot", "Collection", "filename")
+
+fp22.1 <- fp22 %>% 
+  tidyr::separate(col = fp4, 
+                  sep = "/",
+                  into = incols,
+                  remove = TRUE)
+
+fp22.1$filepath <- fp22.1$my_files_ff22
+fp22.1$siteplotyear <- paste0(fp22.1$SitePlot, "-2022")
+fp22.2 <- fp22.1 %>% dplyr::select(filepath, filename)
+
+ff22$filename <- ff22$OUT.FILE.FS
+
+FF2022 <- left_join(ff22, fp22.2)
+
+FF2022$fullfilepath <- paste0(input_ff22, "/", FF2022$filepath)
+
+test <- anti_join(fp22.2, ff22)
+missing2022 <- left_join(test, ff22) # very good chance this is mostly noise, but will have to check later... 
+# 299859 obs 
+
+#write.csv(missing2022, file = file.path(output_today, "FF2022_filepaths_but_no_metadata.csv")) 
+# 24.10.2023
+
+FF1 <- full_join(FF2021, FF2022)
+dim(FF1)
+# 416936     20 # with file path s
+#write.csv(FF1, file = file.path(output_today, "FF_alldata_withfilepaths.csv")) 
+
+kbl(summarize( FF1, type = "factor", variables = "autoid",
+     caption = "2021 and 2022 Follo Forest Bat Data Summary by autoid")) %>%  kable_styling()
+
+```
+
+
+# Select SRE bats and copy them to a new location for manual acoustic analysis
+```{r}
+
+# create a new folder for each of the autoids of all the autoids 
+# autoids <- unique(FF1$autoid)
+# autoids
+
+# for (i in autoids) {
+#     newdir <- paste0("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/",i)
+#     dir.create(newdir) }
+
+
+# Export all the SRE bats first 
+
+################################################################################
+##!!## Remove Files already manually processed from Mathilde's thesis ##!!##
+# Mathilde's dataset 
+mkt <- read_csv("P:/FolloForest2021/FolloForest2022/Acoustics_Subsets/MathildeKTholme/OB/FinalManualIDOutput_MKT_24022023.csv",
+     col_types = cols(...1 = col_skip()))
+dim(mkt)
+# 19811    51
+names(mkt)
+
+mkt_files <- unique(mkt$file.name) # 19001 unique files- 
+mkt$filename <- mkt$file.name
+
+FF2 <- FF1 %>% filter(autoid %in% c("BARBAR", "MYOALC", "MYOBEC",
+                     "MYOBRA", "MYODAS", "MYODAU",
+                     "MYOMYO", "MYOMYS", "MYONAT",
+                     "PLEAUS", "PLEAUR")) %>% droplevels()
+################################################################################
+
+# BARBAR
+BARBAR <- FF2 %>% dplyr::filter(autoid == "BARBAR") #2337 bat passes 
+#write.csv(BARBAR, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/BARBAR/BARBAR_meta.csv")
+BABA.filepaths <- BARBAR$fullfilepath
+
+# # Copy files that match the file paths into a new folder. 
+# file.copy(from = BABA.filepaths,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/BARBAR/WAV")
+#  beep() # that worked! - check the kaleidoscope connection next. 
+
+## Remove MKT bats 
+mkt_BARBAR <- mkt %>% dplyr::filter(AUTO.ID == "BARBAR") %>% 
+  distinct(filename) %>% dplyr::select(filename) #202 obs of 1 col 
+sub_BARBAR <- anti_join(BARBAR, mkt_BARBAR) #2135 
+sub_BARBAR$description <- "FF_BARBAR_MKT_thesis_passes_removed"
+# 2337 - 202 # GOOD 
+
+# Now copy these into their own separate folder. 
+sub_BARBAR.filepaths <- sub_BARBAR$fullfilepath
+#dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/BARBAR/subset1")
+#dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/BARBAR/subset1/WAV")
+#write.csv(sub_BARBAR, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/BARBAR/subset1/meta_FF_BARBAR_MKT_thesis_passes_removed.csv")
+# 
+# file.copy(from = sub_BARBAR.filepaths,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/BARBAR/subset1/WAV")
+#  beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+
+# MYOALC
+MYOALC <- FF2 %>% dplyr::filter(autoid == "MYOALC") #240 bat passes 
+#write.csv(MYOALC, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOALC/MYOALC_meta.csv")
+MYOALC.filepaths <- MYOALC$fullfilepath
+
+#dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOALC/WAV")
+ 
+ ## Remove MKT bats 
+mkt_MYOALC <- mkt %>% dplyr::filter(AUTO.ID == "MYOALC") %>% 
+  distinct(filename) %>% dplyr::select(filename) #42 obs of 1 col 
+sub_MYOALC <- anti_join(MYOALC, mkt_MYOALC) #198
+sub_MYOALC$description <- "FF_MYOALC_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYOALC.filepaths <- sub_MYOALC$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOALC/subset1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOALC/subset1/WAV")
+write.csv(sub_MYOALC, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOALC/subset1/meta_FF_MYOALC_MKT_thesis_passes_removed.csv")
+
+file.copy(from = sub_MYOALC.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOALC/subset1/WAV")
+ beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+
+# MYOBEC
+MYOBEC <- FF2 %>% dplyr::filter(autoid == "MYOBEC") #379 bat passes 
+# write.csv(MYOBEC, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBEC/MYOBEC_meta.csv")
+MYOBEC.filepaths <- MYOBEC$fullfilepath
+# dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBEC/WAV")
+ 
+ ## Remove MKT bats 
+mkt_MYOBEC <- mkt %>% dplyr::filter(AUTO.ID == "MYOBEC") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 85 obs of 1 col 
+sub_MYOBEC <- anti_join(MYOBEC, mkt_MYOBEC) # 294
+sub_MYOBEC$description <- "FF_MYOBEC_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYOBEC.filepaths <- sub_MYOBEC$fullfilepath
+# dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBEC/subset1")
+# dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBEC/subset1/WAV")
+# write.csv(sub_MYOBEC, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBEC/subset1/meta_FF_MYOBEC_MKT_thesis_passes_removed.csv")
+# 
+# file.copy(from = sub_MYOBEC.filepaths,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBEC/subset1/WAV")
+#  beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+ # MYOBRA
+MYOBRA <- FF2 %>% dplyr::filter(autoid == "MYOBRA") #20195 bat passes 
+#write.csv(MYOBRA, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/MYOBRA_meta.csv")
+MYOBRA.filepaths <- MYOBRA$fullfilepath
+
+dim(MYOBRA)
+# 20195    20
+## This is too large to process all at once 
+
+# dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/WAV")
+# 
+ ## Remove MKT bats 
+mkt_MYOBRA <- mkt %>% dplyr::filter(AUTO.ID == "MYOBRA") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 3646 obs of 1 col 
+sub_MYOBRA <- anti_join(MYOBRA, mkt_MYOBRA) # 16549
+sub_MYOBRA$description <- "FF_MYOBRA_MKT_thesis_passes_removed"
+
+
+# Now copy these into their own separate folder(NEED TO SUBSET FURTHER BECAUSE THIS IS A LARGE VOLUME OF PASSES) 
+sub_MYOBRA.filepaths <- sub_MYOBRA$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1")
+write.csv(sub_MYOBRA, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/meta_FF_MYOBRA_MKT_thesis_passes_removed.csv")
+
+# 16549/3 # 5516.333, that'll do 
+# 5516, 11032, 16549
+
+
+# for (i in 1:3) {
+#     newdir <- paste0("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/WAV",i)
+#     dir.create(newdir) } # that worked!
+# 
+# MYOBRA_df <- as.data.frame(sub_MYOBRA.filepaths)
+# 
+# ################################################################################
+# 
+# sub_MYOBRA1 <- MYOBRA_df[1:5516,]
+# file.copy(from = sub_MYOBRA1,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/WAV1")
+#  beep() # that worked!
+#
+
+# sub_MYOBRA2 <- MYOBRA_df[5517:11032,]
+# file.copy(from = sub_MYOBRA2,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/WAV2")
+#  beep() # that worked!
+
+#  sub_MYOBRA3 <- MYOBRA_df[11033:16549,]
+# file.copy(from = sub_MYOBRA3,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/WAV3")
+#  beep() # that worked!
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+ 
+ # MYODAS
+MYODAS <- FF2 %>% dplyr::filter(autoid == "MYODAS") #6622 bat passes 
+#write.csv(MYODAS, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAS/MYODAS_meta.csv")
+MYODAS.filepaths <- MYODAS$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAS/WAV")
+#  
+#   ## Remove MKT bats 
+mkt_MYODAS <- mkt %>% dplyr::filter(AUTO.ID == "MYODAS") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 2487 obs of 1 col 
+sub_MYODAS <- anti_join(MYODAS, mkt_MYODAS) # 4135
+sub_MYODAS$description <- "FF_MYODAS_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYODAS.filepaths <- sub_MYODAS$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAS/subset1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAS/subset1/WAV")
+write.csv(sub_MYODAS, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAS/subset1/meta_FF_MYODAS_MKT_thesis_passes_removed.csv")
+
+file.copy(from = sub_MYODAS.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAS/subset1/WAV")
+ beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+ 
+ # MYODAU
+MYODAU <- FF2 %>% dplyr::filter(autoid == "MYODAU") #25764 batpasses 
+#write.csv(MYODAU, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/MYODAU_meta.csv")
+MYODAU.filepaths <- MYODAU$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/WAV")
+ 
+################################################################################
+ 
+#   ## Remove MKT bats 
+mkt_MYODAU <- mkt %>% dplyr::filter(AUTO.ID == "MYODAU") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 5006 obs of 1 col 
+sub_MYODAU <- anti_join(MYODAU, mkt_MYODAU) # 20758
+sub_MYODAU$description <- "FF_MYODAU_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYODAU.filepaths <- sub_MYODAU$fullfilepath
+#dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1")
+#write.csv(sub_MYODAU, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1/meta_FF_MYODAU_MKT_thesis_passes_removed.csv")
+
+#20758/4 # 5189.5, that'll work
+#5189, 10378, 15567, 20758
+
+# for (i in 1:4) {
+#     newdir <- paste0("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1/WAV",i)
+#     dir.create(newdir) } # that worked!
+
+MYODAU_df <- as.data.frame(sub_MYODAU.filepaths)
+# 
+# ################################################################################
+# 
+# sub_MYODAU1 <- MYODAU_df[1:5189,]
+# file.copy(from = sub_MYODAU1,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1/WAV1")
+#  beep() # that worked!
+#  
+# 
+# sub_MYODAU2 <- MYODAU_df[5190:10378,]
+# file.copy(from = sub_MYODAU2,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1/WAV2")
+#  beep() # that worked!
+# # 
+# 
+# sub_MYODAU3 <- MYODAU_df[10379:15567,]
+# file.copy(from = sub_MYODAU3,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1/WAV3")
+# beep() # that worked!
+ 
+# sub_MYODAU4 <- MYODAU_df[15568:20758,]
+# file.copy(from = sub_MYODAU4,
+#            to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYODAU/subset1/WAV4")
+#  beep() # that worked!
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+ 
+ # MYOMYO
+MYOMYO <- FF2 %>% dplyr::filter(autoid == "MYOMYO") #291 batpasses 
+# write.csv(MYOMYO, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYO/MYOMYO_meta.csv")
+MYOMYO.filepaths <- MYOMYO$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYO/WAV")
+
+ #   ## Remove MKT bats 
+mkt_MYOMYO <- mkt %>% dplyr::filter(AUTO.ID == "MYOMYO") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 159 obs of 1 col 
+sub_MYOMYO <- anti_join(MYOMYO, mkt_MYOMYO) # 132
+sub_MYOMYO$description <- "FF_MYOMYO_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYOMYO.filepaths <- sub_MYOMYO$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYO/subset1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYO/subset1/WAV")
+write.csv(sub_MYOMYO, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYO/subset1/meta_FF_MYOMYO_MKT_thesis_passes_removed.csv")
+
+file.copy(from = sub_MYOMYO.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYO/subset1/WAV")
+ beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+ 
+ # MYOMYS
+MYOMYS <- FF2 %>% dplyr::filter(autoid == "MYOMYS") #16714 batpasses 
+# write.csv(MYOMYS, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/MYOMYS_meta.csv")
+MYOMYS.filepaths <- MYOMYS$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/WAV")
+################################################################################
+ #   ## Remove MKT bats 
+mkt_MYOMYS <- mkt %>% dplyr::filter(AUTO.ID == "MYOMYS") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 5397 obs of 1 col 
+sub_MYOMYS <- anti_join(MYOMYS, mkt_MYOMYS) # 11317
+sub_MYOMYS$description <- "FF_MYOMYS_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYOMYS.filepaths <- sub_MYOMYS$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/subset1")
+#write.csv(sub_MYOMYS, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/subset1/meta_FF_MYOMYS_MKT_thesis_passes_removed.csv")
+
+# 11317/2 = 5658.5
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/subset1/WAV1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/subset1/WAV2")
+
+
+sub_MYOMYS_df <- as.data.frame(sub_MYOMYS.filepaths)
+
+
+sub_MYOMYS1 <- sub_MYOMYS_df[1:5658,]
+sub_MYOMYS2 <- sub_MYOMYS_df[5658:11317,]
+
+
+file.copy(from = sub_MYOMYS1 ,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/subset1/WAV1")
+beep() # that worked!
+
+
+file.copy(from = sub_MYOMYS2 ,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOMYS/subset1/WAV2")
+beep() # that worked!
+ 
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+ 
+ # MYONAT
+MYONAT <- FF2 %>% dplyr::filter(autoid == "MYONAT") #627 batpasses 
+#write.csv(MYONAT, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYONAT/MYONAT_meta.csv")
+MYONAT.filepaths <- MYONAT$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYONAT/WAV")
+ 
+################################################################################
+## Remove MKT bats 
+mkt_MYONAT <- mkt %>% dplyr::filter(AUTO.ID == "MYONAT") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 173 obs of 1 col 
+sub_MYONAT <- anti_join(MYONAT, mkt_MYONAT) # 454
+sub_MYONAT$description <- "FF_MYONAT_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_MYONAT.filepaths <- sub_MYONAT$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYONAT/subset1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYONAT/subset1/WAV")
+write.csv(sub_MYONAT, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYONAT/subset1/meta_FF_MYONAT_MKT_thesis_passes_removed.csv")
+
+file.copy(from = sub_MYONAT.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYONAT/subset1/WAV")
+ beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+ 
+ # PLEAUR
+PLEAUR <- FF2 %>% dplyr::filter(autoid == "PLEAUR") #5448 bat passes 
+#write.csv(PLEAUR, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUR/PLEAUR_meta.csv")
+PLEAUR.filepaths <- PLEAUR$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUR/WAV")
+ 
+################################################################################
+## Remove MKT bats 
+mkt_PLEAUR <- mkt %>% dplyr::filter(AUTO.ID == "PLEAUR") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 1627 obs of 1 col 
+sub_PLEAUR <- anti_join(PLEAUR, mkt_PLEAUR) # 3821
+sub_PLEAUR$description <- "FF_PLEAUR_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_PLEAUR.filepaths <- sub_PLEAUR$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUR/subset1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUR/subset1/WAV")
+write.csv(sub_PLEAUR, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUR/subset1/meta_FF_PLEAUR_MKT_thesis_passes_removed.csv")
+
+file.copy(from = sub_PLEAUR.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUR/subset1/WAV")
+ beep() # that worked! - check the kaleidoscope connection next.
+
+
+################################################################################
+################################################################################
+
+ # PLEAUS
+PLEAUS <- FF2 %>% dplyr::filter(autoid == "PLEAUS") #1928 batpasses 
+ #write.csv(PLEAUS, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUS/PLEAUS_meta.csv")
+PLEAUS.filepaths <- PLEAUS$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUS/WAV")
+ ################################################################################
+## Remove MKT bats 
+mkt_PLEAUS <- mkt %>% dplyr::filter(AUTO.ID == "PLEAUS") %>% 
+  distinct(filename) %>% dplyr::select(filename) # 176 obs of 1 col 
+sub_PLEAUS <- anti_join(PLEAUS, mkt_PLEAUS) # 1752
+sub_PLEAUS$description <- "FF_PLEAUS_MKT_thesis_passes_removed"
+
+# Now copy these into their own separate folder. 
+sub_PLEAUS.filepaths <- sub_PLEAUS$fullfilepath
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUS/subset1")
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUS/subset1/WAV")
+write.csv(sub_PLEAUS, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUS/subset1/meta_FF_PLEAUS_MKT_thesis_passes_removed.csv")
+
+file.copy(from = sub_PLEAUS.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PLEAUS/subset1/WAV")
+ beep() # that worked! - check the kaleidoscope connection next.
+
+################################################################################
+################################################################################
+
+
+```
+
+
+### Copy files for non target subset with NoIDs (from alt4) 
+```{r}
+summary(alt4)
+
+alt4.1 <- alt4 %>% dplyr::filter(autoid %in% c("EPTNIL", "EPTSER", 
+                                               "PIPPIP", "PIPNAT", "PIPPYG", 
+                                               "NYCLEI", "NYCNOC", "VESMUR", "NoID")) %>% droplevels() %>% mutate(filename = OUT.FILE.FS) 
+
+dim(alt4.1)
+
+summary(alt4.1$autoid)
+# EPTNIL EPTSER NYCLEI NYCNOC   NoID PIPNAT PIPPIP PIPPYG VESMUR 
+#   5302   1809    992   1810   7500    197   1030   4450    239 
+
+FF3 <- FF1 %>% dplyr::select(filename, fullfilepath) 
+
+alt4.2 <- left_join(alt4.1, FF3) 
+
+head(alt4.2)
+dim(alt4.2)
+# 23329    19
+
+################################################################################
+################################################################################
+
+ # EPTNIL
+EPTNIL <- alt4.2 %>% dplyr::filter(autoid == "EPTNIL") # 5302 batpasses 
+write.csv(EPTNIL, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTNIL/EPTNIL_meta.csv")
+EPTNIL.filepaths <- EPTNIL$fullfilepath
+
+EPTNIL$siteplotyear <- as.factor(EPTNIL$siteplotyear)
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTNIL/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = EPTNIL.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTNIL/WAV")
+ beep() # that worked!
+ 
+ # Check that this worked the way you thought it would 
+ #test <- list.files("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTNIL/WAV")
+ #looks good! 
+################################################################################
+################################################################################
+
+ # EPTSER
+EPTSER <- alt4.2 %>% dplyr::filter(autoid == "EPTSER") # 1809 batpasses 
+ write.csv(EPTSER, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTSER/EPTSER_meta.csv")
+EPTSER.filepaths <- EPTSER$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTSER/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = EPTSER.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/EPTSER/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+
+  # NYCLEI
+NYCLEI <- alt4.2 %>% dplyr::filter(autoid == "NYCLEI") #  992 batpasses 
+ write.csv(NYCLEI, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NYCLEI/NYCLEI_meta.csv")
+NYCLEI.filepaths <- NYCLEI$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NYCLEI/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = NYCLEI.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NYCLEI/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+   # NYCNOC
+NYCNOC <- alt4.2 %>% dplyr::filter(autoid == "NYCNOC") # 1810 batpasses 
+ write.csv(NYCNOC, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NYCNOC/NYCNOC_meta.csv")
+NYCNOC.filepaths <- NYCNOC$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NYCNOC/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = NYCNOC.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NYCNOC/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+    # PIPNAT
+PIPNAT <- alt4.2 %>% dplyr::filter(autoid == "PIPNAT") # 197 batpasses 
+ write.csv(PIPNAT, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPNAT/PIPNAT_meta.csv")
+PIPNAT.filepaths <- PIPNAT$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPNAT/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = PIPNAT.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPNAT/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+    # PIPPIP
+PIPPIP <- alt4.2 %>% dplyr::filter(autoid == "PIPPIP") # 1030 batpasses 
+ write.csv(PIPPIP, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPPIP/PIPPIP_meta.csv")
+PIPPIP.filepaths <- PIPPIP$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPPIP/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = PIPPIP.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPPIP/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+    # PIPPYG
+PIPPYG <- alt4.2 %>% dplyr::filter(autoid == "PIPPYG") # 4450 batpasses 
+ write.csv(PIPPYG, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPPYG/PIPPYG_meta.csv")
+PIPPYG.filepaths <- PIPPYG$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPPYG/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = PIPPYG.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/PIPPYG/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+   # VESMUR
+VESMUR <- alt4.2 %>% dplyr::filter(autoid == "VESMUR") # 239 batpasses 
+ write.csv(VESMUR, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/VESMUR/VESMUR_meta.csv")
+VESMUR.filepaths <- VESMUR$fullfilepath
+
+dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/VESMUR/WAV")
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = VESMUR.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/VESMUR/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+  
+   # NoID - CB
+NoIDCB <- alt4.2 %>% dplyr::filter(autoid == "NoID") %>% dplyr::filter(Plot == "Canopy")#  25000 batpasses 
+ dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDCB")
+ dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDCB/WAV")
+ write.csv(NoIDCB, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDCB/NoIDCB_meta.csv")
+NoIDCB.filepaths <- NoIDCB$fullfilepath
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = NoIDCB.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDCB/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+   # NoID - IB
+NoIDIB <- alt4.2 %>% dplyr::filter(autoid == "NoID" & Plot == "Interior") #  batpasses 
+ dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDIB")
+ dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDIB/WAV")
+ write.csv(NoIDIB, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDIB/NoIDIB_meta.csv")
+NoIDIB.filepaths <- NoIDIB$fullfilepath
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = NoIDIB.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDIB/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+    # NoID - OB
+NoIDOB <- alt4.2 %>% dplyr::filter(autoid == "NoID" & Plot == "Open") #  batpasses 
+ dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDOB")
+ dir.create("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDOB/WAV")
+ write.csv(NoIDOB, "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDOB/NoIDOB_meta.csv")
+NoIDOB.filepaths <- NoIDOB$fullfilepath
+
+# # Copy files that match the file paths into a new folder. 
+file.copy(from = NoIDOB.filepaths,
+           to = "P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/NoIDOB/WAV")
+ beep("sword") # that worked! 
+ 
+################################################################################
+################################################################################
+ 
+ 
+ 
+```
+
+
+### Quality control check to see if the manual acoustic analyis is running the way I expected. 
+```{r}
+meta <- read_csv("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/ID1/meta.csv")
+meta2 <- read_csv("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/ID2/meta.csv")
+meta3 <- read_csv("P:/FolloForest2021/FolloForest_ManualAcousticAnalysis/MYOBRA/subset1/ID3/meta.csv")
+
+## combine these 
+
+met1 <- full_join(meta, meta2)
+myobra <- full_join(met1, meta3) 
+
+dim(myobra) #16549 
+dim(sub_MYOBRA) #16549 - good. 
+dim(mkt_MYOBRA) # 3646    1 (none of these should be in the other datasets)
+dim(MYOBRA) # 20195    20 (together the sub and the mkt should add up to this) 
+
+names(myobra)
+
+test <- unique(myobra$`IN FILE`) # all distinct files. Thank goodness. 
+
+# Do any of these maatch wath was found in the mkt dataset? 
+myobra1$filename <- myobra1[,1]
+test1 <- full_join(myobra1, mkt_MYOBRA) # 20195    20 - good! 
+# are these all unique files? 
+
+test2 <- unique(test1$filename)
+# 20195 elements - nice! 
+
+```
+
