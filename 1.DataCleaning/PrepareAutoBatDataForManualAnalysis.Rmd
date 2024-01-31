@@ -64,7 +64,7 @@ I show my workflow but have made it possible to skip to the point where you impo
 ################################################################################
 
 # 
-# bats21 <-  read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/Extraction FF21_AllFiles_troubleshooting_columns_included_SitePlot.csv", col_types = cols(...1 = col_skip()))
+# bats21 <-  read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/Extraction FF21_AllFiles_troubleshooting_columns_included_SitePlot.csv", col_types = cols(...1 = col_skip()))
 # # 484303 obs of 58 variables
 # 
 # # remove some redundant columns, identify the main auto id column
@@ -89,7 +89,7 @@ I show my workflow but have made it possible to skip to the point where you impo
 ################################################################################
 # 
 # 
-# bats22 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2022_AutomaticallyProcessed_BatAcousticData_allsitescombined_unedited.csv")
+# bats22 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/2022_AutomaticallyProcessed_BatAcousticData_allsitescombined_unedited.csv")
 # # 494268 obs
 # 
 # # Create a SitePlot column and format the other columns
@@ -233,7 +233,7 @@ I show my workflow but have made it possible to skip to the point where you impo
 #write.csv(FF, file = file.path(output_today, "Simple_AllBatData.CSV") )
 # # 12.10.2023 
 
-FF <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/Simple_AllBatData.CSV",
+FF <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/Simple_AllBatData.CSV",
      col_types = cols(...1 = col_skip())) ## Noise files already removed 
 dim(FF)
 # [1] 416936     17
