@@ -35,7 +35,7 @@ library(beepr)
 library(readr)
 
 ## Setup output directory 
-output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs"
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/InsectData/Outputs"
 
 file.name <- "CleanInsectData"
 
@@ -49,7 +49,7 @@ output_today
 
 dir.create(output_today)
 output_today
-# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Outputs/CleanInsectData_2024-01-31"
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/InsectData/Outputs/CleanInsectData_2024-02-01"
 
 ```
 
@@ -57,7 +57,7 @@ output_today
 ```{r}
 
 # Annotations for all sites combined
-annot <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CleanInsectData/fullannotations_metadata_combined_OCT_FF22.csv", 
+annot <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/InsectData/Inputs/fullannotations_metadata_combined_OCT_FF22.csv", 
      delim = ",", escape_double = FALSE, col_types = cols(...1 = col_skip()),
      trim_ws = TRUE)
 dim(annot)
@@ -170,9 +170,9 @@ summary(bugs2022)
 
 ## Combine with 2021 data 
 ```{r}
-bugs21 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CleanInsectData/combinedannotationsFF21w_locations_wmetadata.csv")
+bugs21 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/InsectData/Inputs/combinedannotationsFF21w_locations_wmetadata.csv")
 dim(bugs21)
-# 17046    10
+# 17046    17
 
 bugs21 <- bugs21 %>% dplyr::select(-c(...1, ...2, Site.y, Latitude, Longitude, Type, SiteType, Date, Time)) %>% rename(Site = Site.x, FileName = Filename) %>% mutate(Site = factor(Site)) 
 

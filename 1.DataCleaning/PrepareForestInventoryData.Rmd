@@ -1,5 +1,5 @@
 ---
-title: "PrepareForestInventoryData"
+title: "ForestInventoryData"
 output: html_document
 date: "2024-01-31"
 ---
@@ -33,9 +33,9 @@ library(vegan)
 library
 
 ## Setup output directory 
-output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Output"
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/ForestInventoryData/Output"
 
-file.name <- "PrepareForestInventoryData"
+file.name <- "ForestInventoryData"
 
 todays_date <- Sys.Date()
  
@@ -47,28 +47,28 @@ output_today
 
 dir.create(output_today)
 output_today
-## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Output/PrepareForestInventoryData_2024-01-31"
+## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/ForestInventoryData/Output/ForestInventoryData_2024-01-31"
 
 ```
 
 ## Import the forest inventory datasets from both years
 ```{r}
 # 2021 forest inventory data 
-forestplots21 <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input/forestplots1.csv",     delim = ";", escape_double = FALSE, trim_ws = TRUE)
+forestplots21 <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/ForestInventoryData/Input/forestplots1.csv",     delim = ";", escape_double = FALSE, trim_ws = TRUE)
 dim(forestplots21)
 # 36 14
 
-BasalArea21 <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input/Basal area summary 2021 (1).csv", 
+BasalArea21 <- read_delim("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/ForestInventoryData/Input/Basal area summary 2021 (1).csv", 
      delim = ";", escape_double = FALSE, trim_ws = TRUE)
 dim(BasalArea21)
 # 682  12
 
 # 2022 forest inventory data
-forestplots22 <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input/ForestPlots_2022_edited.xlsx")
+forestplots22 <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/ForestInventoryData/Input/ForestPlots_2022_edited.xlsx")
 dim(forestplots22)
 # 33  9
 
-BasalArea22 <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Input//BasalArea_2022.xlsx")
+BasalArea22 <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/ForestInventoryData/Input//BasalArea_2022.xlsx")
 dim(BasalArea22)
 # 464  18 
 

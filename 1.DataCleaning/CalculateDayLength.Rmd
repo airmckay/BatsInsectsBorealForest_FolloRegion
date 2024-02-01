@@ -1,5 +1,5 @@
 ---
-title: "CalculateDayLength"
+title: "DayLength"
 output: html_document
 date: "2024-01-31"
 ---
@@ -33,9 +33,9 @@ library(suncalc)
 library(scales)
 
 ## Setup output directory 
-output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CalculateDayLength"
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/DayLength"
 
-file.name <- "Output_CalculateDayLength"
+file.name <- "Output_DayLength"
 
 todays_date <- Sys.Date()
  
@@ -47,7 +47,7 @@ output_today
 
 dir.create(output_today)
 output_today
-## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/CalculateDayLength/Output_CalculateDayLength_2024-01-31"
+## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/DayLength/Output_DayLength_2024-01-31"
 
 ```
 
