@@ -483,8 +483,11 @@ forest.f <- forests1.5 %>% select(c(SitePlotYear, VegCoverRank, BasalArea,
 
 forests2 <- left_join(forest.f, sp1)
 summary(forests2)
+#write.csv(forests2, file = file.path(output_today, "PC1_PC2_wForestStructure_2021_2022.csv"))
+#01.02.2024
 
 pc1 <- forests2 %>% select(SitePlotYear, PC1) 
+
 
 ```
 

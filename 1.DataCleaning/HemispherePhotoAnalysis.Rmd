@@ -56,6 +56,7 @@ library(scales)
 library(dplyr)
 library(jpeg) 
 library(lme4)
+library(ggpmisc)
 source("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/Hemiphot.R")        # functions to calculate all results
 
 #remotes::install_github("coolbutuseless/ggpattern")
@@ -509,24 +510,323 @@ H65.22 <- H65
 
 ## Combine the two years 
 ```{r}
+
+H65.21 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/HemispherePhotos/HemispherePhotoAnalysis_2024-01-31/HemiphotOutput.65_final2021.csv", 
+     col_types = cols(...1 = col_skip()))
 head(H65.21)
-#   File        CanOpen   LAI Type            Site 
-#   <chr>         <dbl> <dbl> <fct>           <fct>
-# 1 FF01_IB.jpg  0.243   2.34 Interior Forest FF01 
-# 2 FF01_OB.jpg  0.160   4.24 Open Forest     FF01 
-# 3 FF02_IB.jpg  0.236   2.76 Interior Forest FF02 
-# 4 FF02_OB.jpg  0.307   2.52 Open Forest     FF02 
-# 5 FF03_IB.jpg  0.0940  4.45 Interior Forest FF03 
-# 6 FF03_OB.jpg  0.253   2.88 Open Forest     FF03 
+#   File        CanOpen   LAI
+#   <chr>         <dbl> <dbl>
+# 1 FF01_IB.jpg  0.243   2.34
+# 2 FF01_OB.jpg  0.160   4.24
+# 3 FF02_IB.jpg  0.236   2.76
+# 4 FF02_OB.jpg  0.307   2.52
+# 5 FF03_IB.jpg  0.0940  4.45
+# 6 FF03_OB.jpg  0.253   2.88
+
+H65.22 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/HemispherePhotos/HemispherePhotoAnalysis_2024-01-31/HemiphotOutput.65_final2022.csv", 
+     col_types = cols(...1 = col_skip()))
 
 head(H65.22)
-#   File        CanOpen    LAI Type            Site 
-#   <chr>         <dbl>  <dbl> <fct>           <fct>
-# 1 FF01_CB.jpg   0.165 Inf    Canopy Forest   FF01 
-# 2 FF01_IB.jpg   0.146   3.72 Interior Forest FF01 
-# 3 FF01_OB.jpg   0.273   4.80 Open Forest     FF01 
-# 4 FF02_CB.jpg   0.225   4.41 Canopy Forest   FF02 
-# 5 FF02_IB.jpg   0.175   3.70 Interior Forest FF02 
-# 6 FF02_OB.jpg   0.358   3.42 Open Forest     FF02 
+#   File        CanOpen    LAI
+#   <chr>         <dbl>  <dbl>
+# 1 FF01_CB.jpg   0.165 Inf   
+# 2 FF01_IB.jpg   0.146   3.72
+# 3 FF01_OB.jpg   0.273   4.80
+# 4 FF02_CB.jpg   0.225   4.41
+# 5 FF02_IB.jpg   0.175   3.70
+# 6 FF02_OB.jpg   0.358   3.42
+
+hemi.21 <- H65.21 %>% filter(str_detect(File, "OB")) %>% mutate(year = "2021") 
+hemi.22 <- H65.22 %>% filter(str_detect(File, "OB")) %>% mutate(year = "2022")
+
+hemi <- full_join(hemi.21, hemi.22)
+
+hemi$Site <- factor(gsub("_OB.jpg", "", hemi$File))
+hemi$site.year <- factor(paste0(hemi$Site, "-", hemi$year)) 
+hemi$year = factor(hemi$year)
+
+dim(hemi)
+summary(hemi)
+
+### Check against the combined file compiled from last year's analysis (should be the same)
+
+# hemi.x <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Hemisphere Photos/HemipsherePhotos22_analysis/Outputs/DATE_output/Hemisphere_2021_2022_OB_CanOpen_Only.csv",       col_types = cols(...1 = col_skip())) 
+# hemi.x <- hemi.x %>% mutate(year = factor(year),
+#                             Site = factor(Site), 
+#                             site.year = factor(site.year)) 
+# dim(hemi.x)
+# summary(hemi.x)
+# Looks good! 
+
+
+## Now combine all plots across all years 
+H65.21$year <- "2021" 
+H65.21$Site <- sub("_IB.jpg", "", H65.21$File)
+H65.21$Site <- sub("_OB.jpg", "", H65.21$Site)
+H65.21$Site <- sub("_CB.jpg", "", H65.21$Site)
+H65.21$Site <- as.factor(H65.21$Site)
+
+H65.22$year <- "2022" 
+H65.22$Site <- sub("_IB.jpg", "", H65.22$File)
+H65.22$Site <- sub("_OB.jpg", "", H65.22$Site)
+H65.22$Site <- sub("_CB.jpg", "", H65.22$Site)
+H65.22$Site <- as.factor(H65.22$Site) 
+
+
+H.21 <-  H65.21 %>% mutate(
+  Type = factor(case_when(
+    endsWith(File, "_IB.jpg") ~ "IB",
+    endsWith(File, "_OB.jpg") ~ "OB",
+    endsWith(File, "_CB.jpg") ~ "CB"))) %>% 
+  mutate(SitePlotYear = factor(paste0(Site, "-", Type, "-", year))) %>% 
+  select(-c(year, Site, File, LAI)) 
+dim(H.21)
+
+H.22 <-  H65.22 %>% mutate(
+  Type = factor(case_when(
+    endsWith(File, "_IB.jpg") ~ "IB",
+    endsWith(File, "_OB.jpg") ~ "OB",
+    endsWith(File, "_CB.jpg") ~ "CB"))) %>% 
+  mutate(SitePlotYear = factor(paste0(Site, "-", Type, "-", year))) %>% 
+  select(-c(year, Site, File, LAI))  
+dim(H.22)
+
+Hdf <- full_join(H.21, H.22)
+# write.csv(Hdf, "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/HemispherePhotos/HemispherePhotoAnalysis_2024-01-31/AllHemisphereCanOpen.csv")
+```
+
+
+## Quality control and interpretation 
+Plot against other measures of forest density to see how they compare
+
+## Import forest structure measures and combine with canopy openness
+```{r}
+forest <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Output/PrepareForestInventoryData_2024-01-31/summary forest structure 2022 and 2021.csv", 
+    col_types = cols(...1 = col_skip()))
+
+open.forest <- forest %>% 
+  filter(str_detect(SitePlotYear, "-OB")) %>% 
+  mutate(factor(SitePlotYear)) %>% 
+  mutate(VegCoverRank = case_when(
+    VegCover == "Sparse" ~ 1,
+    VegCover == "Intermediate" ~ 2,
+    VegCover == "Intermediate, full" ~ 3,
+    VegCover == "Full" ~ 4,
+    VegCover == "Lush" ~ 5,
+    VegCover == "Lush, full" ~ 5)) 
+
+hemi$SitePlotYear = factor(paste0(hemi$Site, "-OB-", hemi$year))
+hemi1 <- hemi %>% select(-c(site.year, Site, year, LAI)) 
+
+open.forest1 <- left_join(open.forest, hemi1)
+summary(open.forest1)
+
+#write.csv(open.forest1, file = file.path(output_today, "OpenForestHabitats_2021_2022_forest_structure.csv")) 
+#01.02.2024
+
+forest1 <-  forest %>%  mutate(SitePlotYear = factor(SitePlotYear)) %>% 
+  mutate(VegCoverRank = case_when(
+    VegCover == "Sparse" ~ 1,
+    VegCover == "Intermediate" ~ 2,
+    VegCover == "Intermediate, full" ~ 3,
+    VegCover == "Full" ~ 4,
+    VegCover == "Lush" ~ 5,
+    VegCover == "Lush, full" ~ 5)) %>% 
+  mutate(BasalArea = BA_100) 
+  
+forest2 <-  left_join(Hdf, forest1)
+
+## bring in PC1 scores 
+
+pc <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/PrepareForestInventoryData/Output/PrepareForestInventoryData_2024-02-01/PC1_PC2_wForestStructure_2021_2022.csv", 
+     col_types = cols(...1 = col_skip()))
+
+pc1 <- pc %>% select(SitePlotYear, PC1) %>% mutate(SitePlotYear = factor(SitePlotYear)) 
+
+forest3 <- left_join(forest2, pc1)
+
+```
+
+
+## Describe which forest structure variables Canopy Openness is mostly highly correlated with 
+
+### SUPPLEMENTARY MATERIALS FIGURE
+#### For open sites only :
+```{r}
+
+## For open sites only : 
+open.forest1$BasalArea <- open.forest1$BA_100
+#  [1] "SitePlot"             "VegType"              "VegCover"             "CountSmallTrees"     
+#  [5] "CountBushes"          "CountDeadTrees"       "CountLivingTrees"     "CountSnags"          
+#  [9] "SumTrees"             "RelascopeSumAvg"      "PlotSize.m2"          "BA_plot"             
+# [13] "BA_100"               "year"                 "SitePlotYear"         "factor(SitePlotYear)"
+# [17] "File"                 "CanOpen"              "BasalArea" 
+
+VegCoverRank <- VegCoverRank <- ggplot(
+  open.forest1, aes(x = CanOpen, y = VegCoverRank)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+VegCoverRank
+
+CountSmallTrees <- ggplot(
+  open.forest1, aes(x = CanOpen, y = CountSmallTrees)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+CountSmallTrees
+
+CountBushes <- ggplot(
+  open.forest1, aes(x = CanOpen, y = CountBushes)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+CountBushes
+
+CountSnags <- ggplot(
+  open.forest1, aes(x = CanOpen, y = CountSnags)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+CountSnags
+
+SumTrees <- ggplot(
+  open.forest1, aes(x = CanOpen, y = SumTrees)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+SumTrees
+
+RelascopeSumAvg <- ggplot(
+  open.forest1, aes(x = CanOpen, y = RelascopeSumAvg)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+RelascopeSumAvg
+
+BasalArea <- ggplot(
+  open.forest1, aes(x = CanOpen, y = BasalArea)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+BasalArea
+
+
+plot_grid(VegCoverRank, CountBushes, CountSmallTrees, CountSnags,
+          SumTrees, RelascopeSumAvg, BasalArea, ncol = 2) + theme(text = element_text(size=20)) + ggtitle ("Open habitats")
+```
+
+
+## Describe which forest structure variables Canopy Openness is mostly highly correlated with 
+
+### SUPPLEMENTARY MATERIALS FIGURE
+#### For all locations where we have both canopy openess and forest structure data /PC1
+```{r}
+
+pcplotopen <- ggplot(data = forest3 %>% filter(Type == "OB") %>% droplevels(), 
+aes(x = PC1, y = CanOpen)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  ylab("Canopy openness") +
+  theme_minimal() + ggtitle("Open Habitat Only") 
+
+pcplot<- ggplot(data = forest3, aes(x = PC1, y = CanOpen)) +
+  geom_point(aes(x = PC1, y = CanOpen), color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  ylab("Canopy openness") +
+  theme_minimal() + ggtitle("All habitats") 
+
+plot_grid(pcplotopen, pcplot)
+
+## For open sites only : 
+names(forest3)
+#  [1] "CanOpen"          "Type"             "SitePlotYear"     "SitePlot"        
+#  [5] "VegType"          "VegCover"         "CountSmallTrees"  "CountBushes"     
+#  [9] "CountDeadTrees"   "CountLivingTrees" "CountSnags"       "SumTrees"        
+# [13] "RelascopeSumAvg"  "PlotSize.m2"      "BA_plot"          "BA_100"          
+# [17] "year"             "VegCoverRank"     "BasalArea"        "PC1" 
+
+VegCoverRank <- VegCoverRank <- ggplot(
+  forest3, aes(x = CanOpen, y = VegCoverRank)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+VegCoverRank
+
+CountSmallTrees <- ggplot(
+  forest3, aes(x = CanOpen, y = CountSmallTrees)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+CountSmallTrees
+
+CountBushes <- ggplot(
+  forest3, aes(x = CanOpen, y = CountBushes)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+CountBushes
+
+CountSnags <- ggplot(
+  forest3, aes(x = CanOpen, y = CountSnags)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+CountSnags
+
+SumTrees <- ggplot(
+  forest3, aes(x = CanOpen, y = SumTrees)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+SumTrees
+
+RelascopeSumAvg <- ggplot(
+  forest3, aes(x = CanOpen, y = RelascopeSumAvg)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+RelascopeSumAvg
+
+BasalArea <- ggplot(
+  forest3, aes(x = CanOpen, y = BasalArea)) +
+  geom_point(color = "black", alpha = 0.6) +
+  stat_poly_line(color = "#486266") +
+  stat_poly_eq() +
+  xlab("Canopy openness") +
+  theme_minimal() 
+BasalArea
+
+
+plot_grid(VegCoverRank, CountBushes, CountSmallTrees, CountSnags,
+          SumTrees, RelascopeSumAvg, BasalArea, ncol = 2) + theme(text = element_text(size=20)) + ggtitle ("All Habitats")
 ```
 
