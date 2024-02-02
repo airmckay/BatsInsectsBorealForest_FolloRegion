@@ -630,7 +630,7 @@ tab_model(PL4b.p1) # this explains 14%
 # #' To get more acquainted with the `DHARMa` package, we also show its results 
 # #' for the GP GLM. We first obtain the scaled quantile residuals.
 # 
-E3.gp <- simulateResiduals(fittedModel = PL4.p, plot = FALSE)
+E3.gp <- simulateResiduals(fittedModel = PL4b.p3, plot = FALSE)
 
 #' Once we have these we can make a Q-Q plot to check whether the scaled
 #' quantile residuals are uniformly distributed.
@@ -703,7 +703,7 @@ dim(newdata.p)
 # summary(M3b)
 # getwd()
 
-predictions.p <- predict(PL4.p, type = "response", newdata = newdata.p, se.fit = TRUE)
+predictions.p <- predict(PL4b.p3, type = "response", newdata = newdata.p, se.fit = TRUE)
 beep()
 
 # Extract predicted values and standard errors
