@@ -1,0 +1,771 @@
+---
+title: "SRE_Density_HabitatModels"
+output: html_document
+date: "2024-02-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+library(ggstats)
+library(ggpmisc)
+library(gginnards)
+library(ggplot2)
+library(colorBlindness)
+library(vegan) 
+library(TMB)
+library(glmmTMB)
+library(DHARMa)
+library(performance)
+library(car)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(modelsummary)
+library(gt)
+library(beepr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs"
+
+file.name <- "SRE.models"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs/SRE.models_2024-02-02"
+```
+
+## Import and tidy 
+```{r}
+bats <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Outputs/NightAggBats_2024-02-01/DensityBats_ForestPhoto.csv", 
+ col_types = cols(...1 = col_skip()))
+
+bats <- bats %>% dplyr::mutate(jnight = yday(night), 
+                        SitePlotYear = factor(SitePlotYear),
+                        Site = factor(Site), 
+                        SitePlot = factor(SitePlot), 
+                        PlotType = factor(PlotType),
+                        year = factor(year), 
+                        jnight.f = factor(jnight),
+                          manual.id = factor(manual.id), 
+                          behavior = factor(behavior), 
+                          guild = factor(guild)) %>%
+  dplyr::mutate(s.temperature = as.numeric(scale(temperature)),
+         s.rainfall = as.numeric(scale(rainfall)),
+         s.PC1 = as.numeric(scale(PC1))) 
+
+summary(bats)
+
+dim(bats)
+# 244470     33
+sum(bats$batpass)
+# 106519
+
+## Color palette for later 
+bats$PlotType <- factor(bats$PlotType, levels=c("Open", "Interior", "Canopy"))
+levels(bats$PlotType)
+plot.cols <- c("#F57969", "#669F85", "#6D5AA1") 
+
+summary(bats$jnight)
+ 
+### Create a "Season" categorical variable split into three categories evenly:
+bats1 <- bats %>% 
+  dplyr::mutate(season = factor(case_when(
+    jnight %in% 124:170 ~ "Early", 
+    jnight %in% 171:217 ~ "Medium", 
+    jnight %in% 218:263 ~ "Late"))) %>% 
+  dplyr::mutate(season = 
+                  factor(season, levels=c("Early", "Medium", "Late"))) 
+summary(bats1)
+
+summary(bats1$season) 
+# Early Medium   Late 
+# 80970  93510  69990
+ levels(bats1$season)
+
+ 
+## Subset for different myotis and brown long-eared (dissolve behavior)
+myot <- bats1 %>% filter(manual.id == "MYOT") %>% select(-behavior) %>% droplevels()
+dim(myot)
+#24447    33
+
+plau <- bats1 %>% filter(manual.id == "PAUR") %>% select(-behavior) %>% droplevels()
+dim(plau)
+#24447    33
+
+bats.map <- bats1 %>% select(SitePlotYear, Site, SitePlot, PlotType, s.PC1,
+                             year, season, night, jnight, jnight.f, 
+                             s.temperature, s.rainfall) %>% distinct()
+# 8149 of 12 
+
+## Myotis 
+MY <- myot %>% group_by(SitePlotYear, night) %>% dplyr::summarise(batpass = sum(batpass)) 
+summary(MY)
+
+mydf <- left_join(MY, bats.map) %>% mutate(taxa = "Myotis species") 
+sum(mydf$batpass == 0) / nrow(mydf)*100 
+# 33.40287
+summary(mydf)
+
+## Brown long-eared bat 
+PL <- plau %>% group_by(SitePlotYear, night) %>% dplyr::summarise(batpass = sum(batpass)) 
+summary(PL)
+
+pldf <- left_join(PL, bats.map) %>% mutate(taxa = "Plecotus auritus") 
+sum(pldf$batpass == 0) / nrow(pldf)*100 
+# 85.75285
+summary(pldf)
+
+## Select 3 nights from each category of season 
+### For plotting predictions later
+# early <- myot %>% filter(season == "Early") %>% droplevels()
+# summary(early$jnight)
+#   #  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#   # 124.0   140.0   150.0   149.9   160.0   170.0 
+# # 124, 150, 160
+# 
+# medium <- myot %>% filter(season == "Medium") %>% droplevels()
+# summary(medium$jnight)
+#   #  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#   # 171.0   182.0   194.0   193.9   206.0   217.0 
+# # 171, 194, 206
+# 
+# late <- myot %>% filter(season == "Late") %>% droplevels()
+# summary(late$jnight)
+#    # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#    #  218     227     236     237     246     263 
+# # 218, 236, 263
+# 
+dates <- c(124, 150, 160, 171, 194, 206, 218, 236, 263)
+
+```
+
+
+
+## Myotis species - Model selection 
+```{r}
+
+#' Apply the Poisson GLMM.
+MY1 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              data = mydf)
+summary(MY1)
+
+#
+# #' This is the ZIP GLMM.
+MY2 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              ziformula = ~1,
+              data = mydf)
+summary(MY2)
+
+#' This is the GP GLMM:
+MY3 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~0,
+              data = mydf)
+#
+ summary(MY3)
+
+
+ 
+MY3b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~1,         
+              data = mydf)
+
+summary(MY3b)
+
+
+# #' This is the NB GLMM:
+MY4 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~0,
+              data = mydf)
+summary(MY4)
+
+
+MY4b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~1,
+              data = mydf)
+summary(MY4b)
+
+
+#' Who is the best so far?
+AIC(MY1, MY2, MY3, MY3b, MY4, MY4b)
+#    df       AIC
+# MY1  14 140917.83
+# MY2  15 117944.71
+# MY3  15  44329.89
+# MY3b 16  44276.49 * This is the best 
+# MY4  15  44714.53
+# MY4b 16  44716.53
+
+
+# MY3b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+#               family = "genpois",
+#               ziformula = ~1,         
+#               data = mydf)
+
+drop1(MY3b)
+# <none>                   41645 * Best as is 
+# s.temperature    1 44298 * best to drop temperature 
+# s.rainfall       1 44332
+# year             1 44322
+# PlotType:season  4 44312
+
+MY3b1 <- glmmTMB(batpass ~ PlotType*season + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~1,
+              data = mydf)
+
+summary(MY3b)
+# tab_model(MY3b)
+# tab_model(MY3b1)
+
+drop1(MY3b1)
+# <none>             44298 * best as is 
+# s.rainfall       1 44351
+# year             1 44355
+# PlotType:season  4 44334
+
+# What about if PC1.S is included? 
+
+
+#' Apply the Poisson GLMM.
+MY1.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              data = mydf)
+summary(MY1.p)
+
+#
+# #' This is the ZIP GLMM.
+MY2.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              ziformula = ~1,
+              data = mydf)
+
+#' This is the GP GLMM:
+MY3.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~0,
+              data = mydf)
+#
+MY3b.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~1,         
+              data = mydf)
+
+# #' This is the NB GLMM:
+MY4.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~0,
+              data = mydf)
+
+
+MY4b.p <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~1,
+              data = pldf)
+
+
+#' Who is the best so far?
+AIC(MY1.p, MY2.p, MY3.p, MY3b.p, MY4.p, MY4b.p)
+# MY1.p  23 132258.45
+# MY2.p  24 112103.47
+# MY3.p  24  43877.12
+# MY3b.p 25  43838.62  * Best
+# MY4.p  24  44184.88
+# MY4b.p 25  44186.88
+
+tab_model(MY3b.p) # this explains 12% 
+
+drop1(MY3b.p)
+# <none>                   43839
+# s.temperature          1 43866
+# s.rainfall             1 43898
+# year                   1 43838
+# PlotType:s.PC1:season  4 43866
+
+## Technically could drop year but this may be a problem for distinguishing between sites so I will keep it  (difference within 2 is a good margin) 
+
+```
+
+
+
+## Model validation 
+```{r}
+# #* Model validation using DHARMa for the GP GLM model----
+# 
+# #' To get more acquainted with the `DHARMa` package, we also show its results 
+# #' for the GP GLM. We first obtain the scaled quantile residuals.
+# 
+E3.gp <- simulateResiduals(fittedModel = MY3b.p, plot = FALSE)
+
+#' Once we have these we can make a Q-Q plot to check whether the scaled
+#' quantile residuals are uniformly distributed.
+par(mfrow = c(1,1), mar = c(5,5,2,2))
+plotQQunif(E3.gp, testUniformity = TRUE,
+           testOutliers = TRUE, testDispersion = TRUE)
+#' There are no major problems
+
+#' We also plot the scaled quantile residuals versus the fitted values.
+#' This is the `DHARMa` equivalent of the figure with the Pearson residuals
+#' vs the fitted values.
+par(mfrow = c(1,1), mar = c(5,5,2,2))
+plotResiduals(E3.gp, quantreg = TRUE, smoothScatter = FALSE)
+#' There are no serious problems.
+
+
+#' We plot the scaled quantile residuals versus the
+#' covariates
+par(mfrow = c(2,3), mar = c(5,5,2,2))
+plotResiduals(E3.gp, form = mydf$s.rainfall)
+plotResiduals(E3.gp, form = mydf$s.temperature)
+plotResiduals(E3.gp, form = mydf$season)
+plotResiduals(E3.gp, form = mydf$PlotType)
+plotResiduals(E3.gp, form = mydf$year)
+plotResiduals(E3.gp, form = mydf$s.PC1)
+
+par(mfrow = c(2,1), mar = c(5,5,2,2))
+plotResiduals(E3.gp, form = mydf$Site) #Note FF08
+plotResiduals(E3.gp, form = mydf$jnight.f)
+#' There are no big problems.
+
+
+#' We can also use `DHARMAa` to check whether the GP GLM can cope with
+#' the excessive number of zeros. This graph is the equivalent of the simulation
+#' study that we carried out a few minutes ago.
+par(mfrow = c(1,1), mar = c(5,5,5,5))
+testZeroInflation(MY3b.p)
+# data:  simulationOutput
+# ratioObsSim = 0.94548, p-value = 0.632
+# alternative hypothesis: two.side
+
+summary(MY3b.p)
+
+```
+
+## Plot predictions - Myotis 
+```{r}
+#Predict for all nights
+summary(mydf)
+
+
+# # Create a data frame with all combinations of PlotType, season, and behavior
+newdata.m <- data.frame(expand.grid(s.PC1 = seq(from = -2.93,
+                                   to = 1.95,
+                                   length = 25),
+                       PlotType = levels(mydf$PlotType),
+                       season = levels(mydf$season),
+                       s.temperature = mean(mydf$s.temperature),
+                       s.rainfall = mean(mydf$s.rainfall),
+                       Site = unique(mydf$Site),
+                       year = unique(mydf$year),
+                       jnight.f = dates)) 
+dim(newdata.m)
+# 48600     8
+# 
+# head(newdata1)
+# tail(newdata1)
+# 
+# # Generate predicted values
+# summary(M3b)
+# getwd()
+
+#predictions.m <- predict(MY3b.p, type = "response", newdata = newdata.m, se.fit = TRUE)
+beep()
+
+# Extract predicted values and standard errors
+predicted_values <- predictions.m$fit
+standard_errors <- predictions.m$se.fit
+# 
+# 
+# # Add the predicted values to the new data frame
+newdata.m$predicted <- predicted_values
+newdata.m$se <- standard_errors
+newdata.m$upper <-  newdata.m$predicted + (2*newdata.m$se)
+newdata.m$lower <- newdata.m$predicted-(2*newdata.m$se)
+dim(newdata.m)
+# 48600    12
+
+head(newdata.m)
+tail(newdata.m) 
+
+#write.csv(newdata.m, file = file.path(output_today, "PredictionsDataFrame_AllMyotis_genpois_zin_6nights.csv"))
+
+# Plot the predicted values 
+
+# Set the colors for each level
+plot.cols
+
+seas.labs <- c("Season:Early", "Season:Mid", "Season:Late")
+names(seas.labs) <- c("Early", "Medium", "Late")
+
+# Create the ggplot
+pred.m <- ggplot(newdata.m, aes(x = s.PC1, y = predicted,
+                     group = PlotType, color = PlotType, 
+                     fill = PlotType)) +
+  
+  # Add average line for each combination of PlotType and Season
+  stat_summary(fun = "mean",  
+               geom = "line", linewidth = 1) + 
+  stat_summary(fun.data = "mean_cl_normal", 
+               geom = "ribbon", alpha = 0.75) + 
+  # Set the color and fill scale based on PlotType
+  scale_color_manual(values = plot.cols) +
+  scale_fill_manual(values = plot.cols) +
+  
+  # Facet the plot by Season
+  facet_wrap(~season, scales = "fixed", ncol = 3,
+             labeller = labeller(season = seas.labs)) +
+  
+  # Customize the theme for a cleaner look
+  theme_minimal() +
+  theme(legend.position = "none",
+        text = element_text(size = 15),
+        plot.title = element_text(face = "bold")) +
+ 
+  # Change legend title
+  labs(x = "Openness", y = "Batpasses per night", 
+       title = "All Myotis species activity") +
+  scale_color_manual(name = "Habitat", values = plot.cols) +
+  scale_fill_manual(name = "Habitat", values = plot.cols) 
+pred.m
+
+```
+
+
+
+### Brown long-eared bats 
+```{r}
+
+#' Apply the Poisson GLMM.
+PL1 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              data = pldf)
+
+#
+# #' This is the ZIP GLMM.
+PL2 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              ziformula = ~1,
+              data = pldf)
+
+#' This is the GP GLMM:
+PL3 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~0,
+              data = pldf)
+#
+ 
+PL3b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~1,         
+              data = pldf)
+
+# #' This is the NB GLMM:
+PL4 <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~0,
+              data = pldf)
+
+
+PL4b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~1,
+              data = pldf)
+
+### Now with PC1
+
+#' Apply the Poisson GLMM.
+PL1.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              data = pldf)
+
+#
+# #' This is the ZIP GLMM.
+PL2.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "poisson",
+              ziformula = ~1,
+              data = pldf)
+
+#' This is the GP GLMM:
+PL3.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~0,
+              data = pldf)
+#
+PL3b.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "genpois",
+              ziformula = ~1,         
+              data = pldf)
+
+# #' This is the NB GLMM:
+PL4.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~0,
+              data = pldf)
+
+
+PL4b.p <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+              family = "nbinom2",
+              ziformula = ~1,
+              data = pldf)
+
+
+#' Who is the best so far?
+AIC(PL1, PL2, PL3, PL3b, PL4, PL4b, 
+    PL1.p, PL2.p, PL3.p, PL3b.p, PL4.p, PL4b.p)
+#        df      AIC
+# PL1    14 9563.176
+# PL2    15 8814.421
+# PL3    15 8527.396
+# PL3b   16 8504.134
+# PL4    15 8386.415
+# PL4b   16 8388.415
+# PL1.p  23 9532.982
+# PL2.p  24 8769.886
+# PL3.p  24 8499.100
+# PL3b.p 25 8477.854
+# PL4.p  24 8351.116 *Best
+# PL4b.p 25 8353.116
+
+drop1(PL4.p)
+# <none>                   8351.1
+# s.temperature          1 8352.2
+# s.rainfall             1 8360.6
+# year                   1 8349.5
+# PlotType:s.PC1:season  4 8347.4 * this is the best
+# Break apart the interaction 
+
+PL4b.p1 <- glmmTMB(batpass ~ 
+                     PlotType:s.PC1 + PlotType:season + season:s.PC1 +
+                     s.temperature + s.rainfall + year + (1|Site) +
+                     (1|jnight.f) ,
+               family = "nbinom2",
+               ziformula = ~1,
+               data = pldf)
+
+drop1(PL4b.p1)
+# <none>             8363.4
+# s.temperature    1 8363.7
+# s.rainfall       1 8372.7
+# year             1 8363.1
+# PlotType:s.PC1   0 8354.4
+# PlotType:season  6 8454.0 *Drop this one 
+# s.PC1:season     2 8367.9
+
+PL4b.p2 <- glmmTMB(batpass ~ PlotType:s.PC1 +  season:s.PC1 + 
+                   s.temperature + s.rainfall + year + (1|Site) +
+                   (1|jnight.f) ,
+               family = "nbinom2",
+               ziformula = ~1,
+               data = pldf)
+
+drop1(PL4b.p2)
+# <none>            8454.0
+# s.temperature   1 8452.4 * drop this 
+# s.rainfall      1 8464.7
+# year            1 8455.4
+# PlotType:s.PC1  2 8472.1
+# s.PC1:season    2 8456.2
+
+PL4b.p3 <- glmmTMB(batpass ~ PlotType:s.PC1 +  season:s.PC1 + 
+                     s.rainfall + year + (1|Site) + (1|jnight.f) ,
+               family = "nbinom2",
+               ziformula = ~1,
+               data = pldf)
+drop1(PL4b.p3)
+#                Df    AIC
+# <none>            8452.4 * This is best 
+# s.rainfall      1 8463.1
+# year            1 8453.5
+# PlotType:s.PC1  2 8470.5
+# s.PC1:season    2 8454.5
+
+tab_model(PL4b.p3) # this explains 7% 
+tab_model(PL4b.p2) # this explains 7% 
+tab_model(PL4b.p1) # this explains 14%
+
+```
+
+
+
+## Model validation 
+```{r}
+# #* Model validation using DHARMa for the GP GLM model----
+# 
+# #' To get more acquainted with the `DHARMa` package, we also show its results 
+# #' for the GP GLM. We first obtain the scaled quantile residuals.
+# 
+E3.gp <- simulateResiduals(fittedModel = PL4.p, plot = FALSE)
+
+#' Once we have these we can make a Q-Q plot to check whether the scaled
+#' quantile residuals are uniformly distributed.
+par(mfrow = c(1,1), mar = c(5,5,2,2))
+plotQQunif(E3.gp, testUniformity = TRUE,
+           testOutliers = TRUE, testDispersion = TRUE)
+#' There are no major problems
+
+#' We also plot the scaled quantile residuals versus the fitted values.
+#' This is the `DHARMa` equivalent of the figure with the Pearson residuals
+#' vs the fitted values.
+par(mfrow = c(1,1), mar = c(5,5,2,2))
+plotResiduals(E3.gp, quantreg = TRUE, smoothScatter = FALSE)
+#' There are no serious problems.
+
+
+#' We plot the scaled quantile residuals versus the
+#' covariates
+par(mfrow = c(2,3), mar = c(5,5,2,2))
+plotResiduals(E3.gp, form = pldf$s.rainfall)
+plotResiduals(E3.gp, form = pldf$s.temperature)
+plotResiduals(E3.gp, form = pldf$season)
+plotResiduals(E3.gp, form = pldf$PlotType)
+plotResiduals(E3.gp, form = pldf$year)
+plotResiduals(E3.gp, form = pldf$s.PC1)
+
+par(mfrow = c(2,1), mar = c(5,5,2,2))
+plotResiduals(E3.gp, form = pldf$Site) #Note FF08
+plotResiduals(E3.gp, form = pldf$jnight.f)
+#' There are no big problems.
+
+
+#' We can also use `DHARMAa` to check whether the GP GLM can cope with
+#' the excessive number of zeros. This graph is the equivalent of the simulation
+#' study that we carried out a few minutes ago.
+par(mfrow = c(1,1), mar = c(5,5,5,5))
+testZeroInflation(PL4.p)
+# data:  simulationOutput
+# ratioObsSim = 0.94548, p-value = 0.632
+# alternative hypothesis: two.side
+
+summary(PL4.p)
+
+```
+
+## Plot predictions - Plecotus 
+```{r}
+#Predict for all nights
+summary(pldf)
+
+
+# # Create a data frame with all combinations of PlotType, season, and behavior
+newdata.p <- data.frame(expand.grid(s.PC1 = seq(from = -2.93,
+                                   to = 1.95,
+                                   length = 25),
+                       PlotType = levels(pldf$PlotType),
+                       season = levels(pldf$season),
+                       s.temperature = mean(pldf$s.temperature),
+                       s.rainfall = mean(pldf$s.rainfall),
+                       Site = unique(pldf$Site),
+                       year = unique(pldf$year),
+                       jnight.f = dates)) 
+dim(newdata.p)
+# 48600     8
+# 
+# head(newdata1)
+# tail(newdata1)
+# 
+# # Generate predicted values
+# summary(M3b)
+# getwd()
+
+predictions.p <- predict(PL4.p, type = "response", newdata = newdata.p, se.fit = TRUE)
+beep()
+
+# Extract predicted values and standard errors
+predicted_values <- predictions.p$fit
+standard_errors <- predictions.p$se.fit
+# 
+# 
+# # Add the predicted values to the new data frame
+newdata.p$predicted <- predicted_values
+newdata.p$se <- standard_errors
+newdata.p$upper <-  newdata.p$predicted + (2*newdata.p$se)
+newdata.p$lower <- newdata.p$predicted-(2*newdata.p$se)
+dim(newdata.p)
+# 48600    12
+
+head(newdata.p)
+tail(newdata.p) 
+
+# write.csv(newdata.p, file = file.path(output_today, "PredictionsDataFrame_AllPlecotus_genpois_zin_6nights.csv"))
+
+# Plot the predicted values 
+
+# Set the colors for each level
+plot.cols
+
+seas.labs <- c("Season:Early", "Season:Mid", "Season:Late")
+names(seas.labs) <- c("Early", "Medium", "Late")
+
+# Create the ggplot
+pred.p <- ggplot(newdata.p, aes(x = s.PC1, y = predicted,
+                     group = PlotType, color = PlotType, 
+                     fill = PlotType)) +
+  
+  # Add average line for each combination of PlotType and Season
+  stat_summary(fun = "mean",  
+               geom = "line", linewidth = 1) + 
+  stat_summary(fun.data = "mean_cl_normal", 
+               geom = "ribbon", alpha = 0.75) + 
+  # Set the color and fill scale based on PlotType
+  scale_color_manual(values = plot.cols) +
+  scale_fill_manual(values = plot.cols) +
+  
+  # Facet the plot by Season
+  facet_wrap(~season, scales = "fixed", ncol = 3,
+             labeller = labeller(season = seas.labs)) +
+  
+  # Customize the theme for a cleaner look
+  theme_minimal() +
+  theme(legend.position = "none",
+        text = element_text(size = 15),
+        plot.title = element_text(face = "bold")) +
+ 
+  # Change legend title
+  labs(x = "Openness", y = "Batpasses per night", 
+       title = "All Plecotus auritus activity") +
+  scale_color_manual(name = "Habitat", values = plot.cols) +
+  scale_fill_manual(name = "Habitat", values = plot.cols) 
+pred.p
+
+windows()
+cowplot::plot_grid(pred.p, pred.m, nrow = 2) 
+
+```
+
+
