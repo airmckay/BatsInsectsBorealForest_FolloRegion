@@ -1,0 +1,580 @@
+---
+title: "NightAggregateBats_DensityManuscript"
+output: html_document
+date: "2024-02-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Goals: 
+- Aggregate bat data to night
+- Insert zero nights when detectors were active but did not record bat activity
+- Compile covariates 
+
+
+```{r}
+
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Outputs"
+
+file.name <- "NightAggBats"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Outputs/NightAggBats_2024-02-01"
+
+```
+
+## Import datasets
+```{r}
+
+## Nightly aggregated for all manual acoustic analysis 
+bats <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/ManualAnalaysis21_22_combined_datetime_PlotType_Guild.csv",
+     col_types = cols(...1 = col_skip()))
+dim(bats)
+# 108989     22
+
+## Nights when detectors were working but no data selected manually added
+active.nights <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/active_detector.nights_2021_2022.csv", 
+     col_types = cols(...1 = col_skip()))
+# 8155 obs of 4 vars
+
+## Forest structure data
+forest <-  read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/PC1_PC2_wForestStructure_2021_2022.csv", 
+     col_types = cols(...1 = col_skip()))
+forest$SitePlotYear <- factor(forest$SitePlotYear)
+# 69 obs of 10 vars
+
+## Day length 
+photo <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/daylength.csv", 
+      col_types = cols(...1 = col_skip()))
+
+# weather data aggregated with TOMST data loggers 
+weather.log <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/se.norge_precip_temp_combined_TOMST4_2021_2022.csv", 
+     col_types = cols(...1 = col_skip()))
+
+weather.log <- weather.log %>% mutate(
+  Site = factor(Site), 
+  year = factor(year),
+  site.year = factor(site.year)) %>% select(-datetime)
+# 2167 obs 11 vars
+
+# weather data aggregated with se.norge data 
+weather.se <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/se.norge_precip_temp_combined_2021_2022.csv", 
+     col_types = cols(...1 = col_skip()))
+
+weather.se <- weather.se %>% dplyr::mutate(
+  Site = factor(Site), 
+  year = factor(year(night)),
+  site.year = factor(paste0(Site, "-", year))) %>% select(-datetime)
+#3039 obs 6 vars
+
+## Hemisphere photos 
+hemi <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Inputs/AllHemisphereCanOpen.csv", 
+     col_types = cols(...1 = col_skip()))
+# 57 obs 3 vars 
+hemi$SitePlotYear <- factor(hemi$SitePlotYear) 
+```
+
+
+
+## House keeping
+```{r}
+bats1 <- bats %>% 
+  mutate(manual.id = factor(manual.id),
+         behavior = factor(behavior), 
+         guild = factor(guild), 
+         year = factor(year), 
+         Detector = factor(Detector), 
+         detector.year = factor(detector.year),
+         SitePlot = factor(SitePlot),
+         PlotType = factor(PlotType),
+         Site = factor(Site),
+         night = DATE.12) %>% 
+  mutate(SitePlotYear = factor(paste0(SitePlot, "-", year))) %>% 
+  filter(guild != "Noise") %>% droplevels() 
+# 106525 (2464 noise files dropped)
+
+
+tz(bats1$datetime) # "UTC"
+tz(bats1$nighttime) # "UTC" 
+
+bats1$datetime <- force_tz(bats1$datetime, tzone = "Europe/Berlin")
+bats1$nighttime <- force_tz(bats1$nighttime, tzone = "Europe/Berlin")
+tz(bats1$datetime) # "Europe/Berlin"
+tz(bats1$nighttime) # "Europe/Berlin" 
+# Good 
+
+
+active.nights$SitePlot <- gsub("FF1-", "FF01-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF2-", "FF02-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF3-", "FF03-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF4-", "FF04-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF5-", "FF05-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF6-", "FF06-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF7-", "FF07-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF8-", "FF08-", active.nights$SitePlot)
+active.nights$SitePlot <- gsub("FF9-", "FF09-", active.nights$SitePlot)
+
+active.nights$SitePlot <- factor(active.nights$SitePlot)
+
+active.nights$SitePlotYear <- factor(paste0(active.nights$SitePlot, "-", active.nights$year)) 
+
+test <- active.nights %>% mutate(test = paste0(SitePlotYear, "-", night)) 
+test1 <- test$test
+test2  <- test1[duplicated(test1)]
+test2 # No duplicates! 
+
+active.nights.21 <- active.nights %>% filter(year == "2021") %>% droplevels()
+# 3808 detector nights in 2021 
+
+active.nights.22 <- active.nights %>% filter(year == "2022") %>% droplevels()
+# 4347 detector nights in 2022
+
+```
+
+
+#####################################
+## Insert the zero nights ## *3 behaviors*
+#####################################
+
+```{r}
+summary(bats1$behavior)
+#      Both Commuting   Feeding    Social 
+#      148     83151     15342      7884 
+
+
+# Given how few bat passes have both feeding and social activity, I am going to merge down to three behavior levels and re-aggregate
+
+# Create new behavior column 
+batsx <- bats1 %>% mutate(behavior1 = case_when(
+  behavior == "Commuting" ~ "Commuting", 
+  behavior == "Social" ~ "Social", 
+  behavior == "Feeding" ~ "Feeding", 
+  behavior == "Both" ~ "Feeding"
+)) %>% mutate(behavior1 = factor(behavior1))
+
+summary(batsx$behavior1)
+# Commuting   Feeding    Social 
+#     83151     15490      7884 
+
+###########################################
+#### Insert zeroes for each year separately. 
+        ######### 2021 #########
+###########################################
+
+bats_21 <- batsx %>% dplyr::filter(year == "2021") %>% droplevels()
+#48866 bat passes 
+
+batmap <- bats_21 %>% dplyr::select(Site, SitePlot, SitePlotYear, PlotType) %>% unique()
+
+timemap <- bats_21 %>% dplyr::select(night) %>% distinct(night, .keep_all = TRUE) 
+# 121 nights of survey (before adding in zero nights)
+
+### AGGREGATE TO N BAT PASSES PER MANUAL ID PER BEHAVIOR PER NIGHT
+# Number of bat passes per night for each manual ID AND behavior summed 
+bats2 <- bats_21 %>% group_by(SitePlotYear, night, manual.id, behavior1) %>% dplyr::summarize(batpass = sum(n()))
+# 11106 obs of 5 vars
+head(bats2)
+
+bats3 <- left_join(bats2, batmap)
+summary(bats3) # 11106 detector-manual.id-behavior nights  
+
+dat <- bats3 
+dim(dat) # 11106     9
+levels(dat$SitePlotYear)
+
+active.nights <- active.nights.21 %>% distinct() #3805 detector nights 
+dim(active.nights)
+# 3805    5
+# 3805 - 3784 ...21 nights difference
+
+summary(active.nights$SitePlotYear)
+head(active.nights)
+
+night <- unique(active.nights$night)
+# 124 unique nights  
+
+temp<-expand.grid(SitePlotYear= unique(dat$SitePlotYear),  
+                  night = unique(active.nights$night), 
+                  manual.id = unique(dat$manual.id), 
+                  behavior1 = unique(dat$behavior1)) 
+dim(temp)
+levels(temp$SitePlotYear)
+summary(temp)
+dim(temp)
+#133920        4
+
+temp$night <-  as.Date(temp$night, format = "%Y-%m-%d")
+active.nights$night <-  as.Date(active.nights$night, format = "%Y-%m-%d")
+
+active.nights$SitePlotYear <- as.factor(active.nights$SitePlotYear)
+
+str(temp)
+str(active.nights)
+
+temp2<-merge(temp,active.nights)
+levels(temp2$SitePlotYear)
+dim(temp2)
+# 114240  obs 
+
+temp3<-merge(temp2, dat, all.x=TRUE) 
+dim(temp3) # 114240          10
+levels(temp3$SitePlotYear)
+
+temp3$active.night <- as.factor(temp3$active.night) # 
+
+summary(temp3$SitePlotYear)
+summary(temp3) # 103134 zeros introduced 
+
+# reformat factor columns and then replace NA bat passes with zeros 
+nbats <- temp3 %>% 
+  dplyr::select(-c(Site, active.night, year, SitePlot, PlotType)) %>% 
+  droplevels() 
+
+nbats1 <- left_join(nbats, batmap, by = "SitePlotYear")
+summary(nbats1)
+dim(nbats1)
+# 114240            8
+
+# replace NAs with zeros 
+nbats1[is.na(nbats1)] <- 0 
+summary(nbats1)
+
+levels(nbats1$SitePlotYear)
+
+
+
+FF12CB2021 <- nbats1 %>% filter(SitePlotYear == "FF12-CB-2021") %>% droplevels()
+
+ggplot(FF12CB2021) + 
+  geom_count(aes(x = night, y = batpass, color = manual.id, shape = behavior1) ) 
+
+### Visualize to check rather or not this worked #### 
+
+nbats1 %>% filter(batpass > 0) %>% 
+  ggplot(aes(x = night, y = batpass)) + 
+  geom_point(alpha = 0.3) + facet_wrap(~SitePlot) + ylim(c(1,50))
+
+### Now check that the suvey effort is covered properly 
+# surveyeffort <- ggplot(nbats1) + 
+#   geom_point(aes(x = night, y = Site), 
+#              color = "#DAB82A", shape = 19,  alpha = 0.5) +  
+#   facet_wrap(~PlotType, nrow=3) + 
+#   xlab("2021") + ylab(" ") +
+#   ggtitle("Survey effort") + 
+#   theme(legend.position="none") +
+#   theme(panel.grid.major = element_blank(), 
+#         panel.grid.minor = element_blank(),
+#         panel.background = element_blank(), 
+#         text = element_text(size = 12),
+#         axis.line = element_line(colour = "black"))
+# surveyeffort
+
+# Remnove 02.09.2021 data for FF7 and FF12 sites - detectors did not complete full night of recording. Were retrieved during night time. 
+
+# should lose 240 obs total. 
+dropthese <- nbats1 %>% # 
+  subset(night == "2021-09-02" & Site %in% c('FF07', 'FF12'))%>% 
+  droplevels()
+
+sum(dropthese$batpass)
+# 6 bat passes dropped on incomplete nights. 
+
+nbats2 <- anti_join(nbats1, dropthese)
+
+nbats_2021 <- nbats2
+# 114060
+sum(nbats_2021$batpass)
+# 48860
+
+dim(bats_21)
+# 48866    25
+# 6 bat pass difference only
+
+###########################################
+#### Insert zeroes for each year separately. 
+        ######### 2022 #########
+###########################################
+bats_22 <- batsx %>% filter(year == "2022") %>% droplevels()
+#57659 bat passes 
+
+batmap <- bats_22 %>% dplyr::select(Site, SitePlot, SitePlotYear, PlotType) %>% unique()
+
+timemap <- bats_22 %>% dplyr::select(night) %>% distinct(night, .keep_all = TRUE) # 140 nights of survey (before adding in zero nights)
+
+### AGGREGATE TO N BAT PASSES PER MANUAL ID PER BEHAVIOR PER NIGHT
+# Number of bat passes per night for each manual ID AND behavior summed 
+bats2 <- bats_22 %>% dplyr::group_by(SitePlotYear, night, manual.id, behavior1) %>% dplyr::summarize(batpass = sum(n()))
+# 12973      obs of 5 vars
+head(bats2)
+
+bats3 <- dplyr::left_join(bats2, batmap)
+summary(bats3) # 12973      detector-manual.id-behavior nights  
+
+dat <- bats3 
+dim(dat) # 12973          7
+levels(dat$SitePlotYear)
+
+active.nights <- active.nights.22 %>% distinct() #4347 detector nights 
+summary(active.nights$SitePlotYear)
+head(active.nights)
+
+night <- unique(active.nights$night)
+# 140 nights, no unique dates added to the season 
+
+temp<-expand.grid(SitePlotYear= unique(dat$SitePlotYear),  
+                  night = unique(active.nights$night), 
+                  manual.id = unique(dat$manual.id), 
+                  behavior1 = unique(dat$behavior1)) 
+dim(temp)
+levels(temp$SitePlotYear)
+summary(temp)
+# 113400            4
+
+temp$night <-  as.Date(temp$night, format = "%Y-%m-%d")
+active.nights$night <-  as.Date(active.nights$night, format = "%Y-%m-%d")
+
+active.nights$SitePlotYear <- as.factor(active.nights$SitePlotYear)
+
+str(temp)
+str(active.nights)
+
+temp2<-merge(temp,active.nights)
+levels(temp2$SitePlotYear)
+dim(temp2)
+#130410             obs 
+
+temp3<-merge(temp2, dat, all.x=TRUE) 
+dim(temp3) # 130080         9
+levels(temp3$SitePlotYear)
+
+temp3$active.night <- as.factor(temp3$active.night) # 
+
+summary(temp3$SitePlotYear)
+summary(temp3) # 117437        zeros introduced 
+
+# reformat factor columns and then replace NA bat passes with zeros 
+nbats <- temp3 %>% 
+  dplyr::select(-c(Site, active.night, year, SitePlot, PlotType)) %>% 
+  droplevels() 
+
+nbats1 <- left_join(nbats, batmap, by = "SitePlotYear")
+summary(nbats1)
+dim(nbats1)
+# 130410          8
+
+# replace NAs with zeros 
+nbats1[is.na(nbats1)] <- 0 
+summary(nbats1)
+
+levels(nbats1$SitePlotYear)
+
+
+# ggplot(nbats1) + geom_count(aes(x = night, y = batpass, color = manual.id, shape = behavior1)) 
+
+### Visualize to check rather or not this worked #### 
+nbats1 %>% filter(batpass > 0) %>% 
+  ggplot(aes(x = night, y = batpass)) + 
+  geom_point(alpha = 0.3) + facet_wrap(~SitePlot) + ylim(c(1,50))
+
+nbats1 %>% ggplot(aes(x = SitePlot, y = batpass, fill = behavior1)) + geom_bar(stat = "identity") + facet_wrap(~manual.id) + ylim(c(0,200))
+
+nbats_2022 <- nbats1
+# 130410
+
+### Now check that the survey effort is covered properly 
+# surveyeffort <- ggplot(nbats1) + 
+#   geom_point(aes(x = night, y = Site), 
+#              color = "#DAB82A", shape = 19,  alpha = 0.5) +  
+#   facet_wrap(~PlotType, nrow=3) + 
+#   xlab("2022") + ylab(" ") +
+#   ggtitle("Survey effort") + 
+#   theme(legend.position="none") +
+#   theme(panel.grid.major = element_blank(), 
+#         panel.grid.minor = element_blank(),
+#         panel.background = element_blank(), 
+#         text = element_text(size = 12),
+#         axis.line = element_line(colour = "black"))
+# surveyeffort
+
+```
+
+
+###########################################
+#### combine years and add back metadata
+###########################################
+
+
+```{r}
+###########################################
+#### combine years and add back metadata
+###########################################
+dim(nbats_2021)
+# 114060      8                  
+dim(nbats_2022)
+# 130410      8            
+
+# 130410 + 114060 = 244470     
+batsdf <- full_join(nbats_2021, nbats_2022)
+dim(batsdf) # 244470      8 - nice!! 
+names(batsdf)
+batsdf <- batsdf %>% rename(behavior = behavior1)
+names(batsdf)
+
+# reconnect the metadata 
+names(bats1)
+batsx1 <- batsx %>% dplyr::select(-behavior) %>%  rename(behavior = behavior1)
+
+meta <- batsx1 %>% dplyr::select(SitePlotYear, PlotType, Detector) %>% unique()
+meta1 <- batsx1 %>% dplyr::select(manual.id, guild) %>% unique()
+
+batsdf1 <- left_join(batsdf, meta)
+batsdf2 <- left_join(batsdf1, meta1)
+
+summary(batsdf2)
+dim(batsdf2)
+# 244470     10
+sum(batsdf2$batpass)
+# 106519
+
+# write.csv(batsdf2, "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Outputs/NightAggregateBats_DensityManuscript_2024-02-01/DensityBats.csv")
+#  01.02.2024
+
+```
+
+## Combine Night aggregated bat data with forest structure, photoperiod and and weather data 
+
+```{r}
+
+#Combine bats with forest 
+batsdf3 <- left_join(batsdf2, forest)
+head(batsdf3)
+summary(batsdf3)
+dim(batsdf3)
+# 244470     19
+
+## Combine with day length 
+batsdf4 <- left_join(batsdf3, photo) %>% select(-c(lat, lon))
+summary(batsdf4)
+dim(batsdf4)
+# 244470     26
+
+## Combine with se. norge weather data 
+batsdf5 <- left_join(batsdf4, weather.se) %>% select(-site.year)
+summary(batsdf5)
+dim(batsdf5)
+# 244470     29
+sum(batsdf5$batpass)
+# 106519
+
+## What is the percent of zero observations? 
+sum(batsdf$batpass == 0)/nrow(batsdf) * 100 
+# 90.15217
+
+# write.csv(batsdf5, file = file.path(output_today, "DensityBats_ForestPhoto.csv"))
+# 01.02.2024
+```
+
+
+## Combine Night aggregated bat data with weather data 
+### For Katrine - SRE bats with soil moisture data 
+```{r}
+
+## Now get the data that Katrine needs for the insect paper
+sre.ob <- batsdf2 %>% filter(PlotType == "Open" & guild == "SRE") %>% droplevels()
+sre.ob$year <- year(sre.ob$night)
+sre.ob$jnight <- yday(sre.ob$night)
+# 16218 obs of 12 vars 
+#write.csv(sre.ob, file = file.path(output_today, "SRE_OpenBats.csv"))
+# 01.02.2024
+
+## Visually check the SRE OB dataset before sending 
+# ggplot(sre.ob) + 
+#   geom_count(aes(x = jnight, y = behavior, color = behavior, size = batpass)) +   facet_wrap(Site~year)
+# 
+# ggplot(sre.ob %>% filter(batpass >0)) + 
+#   geom_count(aes(x = jnight, y = behavior, color = behavior, size = batpass)) +   facet_wrap(Site~year)
+# 
+# summary(sre.ob)
+
+sre.ob <- sre.ob %>% 
+  mutate(
+    Site = factor(Site),
+    SitePlot = factor(SitePlot), 
+    SitePlotYear = factor(SitePlotYear), 
+    PlotType = factor(PlotType), 
+    manual.id = factor(manual.id), 
+    behavior = factor(behavior), 
+    guild = factor(guild),
+    year = factor(year), 
+    site.year = factor(paste0(Site, "-", year))) 
+
+
+### Combine with bat data - Tomst data 
+sre.ob.weather.log <- left_join(weather.log, sre.ob)
+dim(sre.ob.weather.log)
+# 12302    20
+summary(sre.ob.weather.log) # 140 NAs 
+# Remove observations where we had weather data but no sre bat data 
+sre.ob.weather.log1 <- sre.ob.weather.log %>% filter(complete.cases(SitePlotYear)) 
+dim(sre.ob.weather.log1)
+# 12162    20 
+# lost 140 weather nights 
+
+# Add in hemisphere photo data 
+sre.ob.weather.log2 <- left_join(sre.ob.weather.log1, hemi) 
+dim(sre.ob.weather.log2)
+# 12162    21
+summary(sre.ob.weather.log2)
+sum(sre.ob.weather.log2$batpass)
+# 29948
+#write.csv(sre.ob.weather.log2 , file = file.path(output_today, "sre.open_se.weather_log.weather.csv")) 
+# Folder: NightAggBats_2024-02-01"
+# 01.02.2024
+
+### Combine with bat data - se.norge data only (no loggers)
+sre.weather <- left_join(sre.ob, weather.se)
+sre.weather1 <- left_join(sre.weather, hemi) 
+dim(sre.weather1)
+# 16218    17    
+summary(sre.weather1)
+sum(sre.weather1$batpass)
+# 39260 
+#write.csv(sre.weather1 , file = file.path(output_today, "sre.open_se.weather.csv")) 
+# Folder: NightAggBats_2024-02-01"
+# 01.02.2024
+
+```
+

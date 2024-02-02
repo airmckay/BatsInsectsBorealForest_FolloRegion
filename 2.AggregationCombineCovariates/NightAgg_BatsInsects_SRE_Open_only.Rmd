@@ -1,0 +1,162 @@
+---
+title: "NightAgg_BatsInsects"
+output: html_document
+date: "2024-02-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAgg_BatsInsects_SRE_Open/Outputs"
+
+file.name <- "NightAggBatsInsects"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+## "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAgg_BatsInsects_SRE_Open/Outputs/NightAggBatsInsects_2024-02-01"
+
+```
+
+
+```{r}
+bugs <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAgg_BatsInsects_SRE_Open/Inputs/OCT_imageannotations_withmeta_combined.csv", 
+ col_types = cols(...1 = col_skip()))
+dim(bugs)
+summary(bugs)
+# 21801    11
+
+bugs$SiteYear <- as.factor(bugs$SiteYear) 
+summary(bugs$SiteYear)
+
+## Fix the site names from 2021 
+bugs$SiteYear <- gsub("FF1-", "FF01-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF2-", "FF02-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF3-", "FF03-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF4-", "FF04-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF5-", "FF05-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF6-", "FF06-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF7-", "FF07-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF8-", "FF08-", bugs$SiteYear)
+bugs$SiteYear <- gsub("FF9-", "FF09-", bugs$SiteYear)
+
+bugs$SiteYear <- factor(bugs$SiteYear)
+levels(bugs$SiteYear)
+
+names(bugs)
+# [1] "FileName"     "nInsects"     "nUncertain"   "Region_count"
+#  [5] "datetime"     "date"         "ImageQuality" "nighttime"   
+#  [9] "night"        "SiteYear"     "nPhotos"   
+
+tz(bugs$datetime) # "UTC"
+tz(bugs$nighttime) # "UTC" 
+# Bad
+## Fix the timezone
+bugs$datetime <- force_tz(bugs$datetime, tzone = "Europe/Berlin")
+bugs$nighttime <- force_tz(bugs$nighttime, tzone = "Europe/Berlin")
+tz(bugs$datetime) # "Europe/Berlin"
+tz(bugs$nighttime) # "Europe/Berlin" 
+# Good 
+
+bugmap <- bugs %>% 
+  dplyr::select(SiteYear, night, nPhotos) %>% 
+  distinct()
+
+bugnight <- bugs %>% 
+  group_by(SiteYear, night) %>% 
+  dplyr::summarise(nInsects = sum(nInsects),
+                   nUncertain = sum(nUncertain)) 
+  
+bugnight1 <- left_join(bugnight, bugmap)
+#436 camera trap nights across both seasons of trapping
+
+names(bugnight1)
+# "SiteYear"   "night"      "nInsects"   "nUncertain" "nPhotos"
+```
+
+
+## Import bat data + TOMST loggers and combine with insect data 
+### Add photoperiod information 
+```{r}
+
+# sre bats night aggregated with se.norge weather data
+sre_se <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAgg_BatsInsects_SRE_Open/Inputs/sre.open_se.weather.csv", 
+     col_types = cols(...1 = col_skip()))
+dim(sre_se)
+# 16218    17
+sum(sre_se$batpass)
+# 39260
+
+summary(sre_se)
+
+sre_se1 <- sre_se %>% 
+  mutate(SiteYear = factor(site.year),
+         SitePlotYear = factor(SitePlotYear),
+         manual.id = factor(manual.id), 
+         behavior = factor(behavior), 
+         guild = factor(guild), 
+         Site = factor(Site), 
+         SitePlot = factor(SitePlot), 
+         PlotType = factor(PlotType)) %>% 
+  select(-c(site.year, Type, Detector))
+
+## Combine with bugs
+batsbugs.se <- dplyr::left_join(bugnight1, sre_se1)
+dim(batsbugs.se)
+# 2441   18
+summary(batsbugs.se)
+# 35 NAs on nights when there were insect photos but no bat acoustic monitoring happening. 
+## Sites 10, 11 and 3 in late August 2021 - microphones failed and this was not discovered during maintenance checks 
+
+sum(batsbugs.se$nInsects)
+# 25753
+
+## Combine with photoperiod 
+daylength <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAgg_BatsInsects_SRE_Open/Inputs/daylength.csv", 
+     col_types = cols(...1 = col_skip()))
+
+daylength <- daylength %>% select(-jnight)
+# Merge 
+batsbugs.se1 <- left_join(batsbugs.se, daylength)
+
+summary(batsbugs.se1)
+output_today
+#write.csv(batsbugs.se1, file = file.path(output_today, "SREbatsInsects_se.Weatherphoto.csv"))
+#2441 of 26  
+# 35 NAs on nights when there were insect photos but no bat acoustic monitoring happening. 
+# 01.02.2024
+
+
+```
+
