@@ -134,7 +134,7 @@ summary(bats1$season)
  levels(bats1$season)
 
  
- ## Subset for different myotis behaviors  
+## Subset for different myotis behaviors  
 myot <- bats1 %>% filter(manual.id == "MYOT") %>% droplevels()
 dim(myot)
 #24447    38
@@ -249,7 +249,7 @@ AIC(M1f, M2f, M3f, M3fb, M4f, M4fb)
 # M1  23 41918.20
 # M2  24 91188.46
 # M3  24 21190.08 *best 
-# M3b 25 21192.08
+# M3b 25 21192.08 * but only a 2 point difference with the zero inflated
 # M4  24 21409.27
 # M4b 25 21411.27
 
@@ -266,6 +266,8 @@ drop1(M3f)
 # s.rainfall             1 21216
 # year                   1 21195
 # PlotType:s.PC1:season  4 21200
+
+## To have a more comparable model with the Myotis commuting model, I will use the M3f model. 
 
 
 ```
