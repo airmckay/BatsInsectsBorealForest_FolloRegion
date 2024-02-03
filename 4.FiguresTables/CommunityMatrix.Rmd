@@ -1,0 +1,162 @@
+---
+title: "CommunityMatrix"
+output: html_document
+date: "2024-02-03"
+---
+
+
+## Goals 
+
+-NMDS ordination of bat taxa occurances across site plot nights
+
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+library(ggstats)
+library(ggpmisc)
+library(gginnards)
+library(ggplot2)
+library(colorBlindness)
+library(vegan) 
+library(gt)
+library(beepr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs"
+
+file.name <- "CommunityMatrix"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs/SRE.models_2024-02-02"
+```
+
+
+
+## Import and tidy
+```{r}
+bats <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAggregateBats_DensityManuscript/Outputs/NightAggBats_2024-02-01/DensityBats_ForestPhoto.csv", 
+ col_types = cols(...1 = col_skip()))
+
+bats <- bats %>% dplyr::mutate(jnight = yday(night), 
+                        SitePlotYear = factor(SitePlotYear),
+                        Site = factor(Site), 
+                        SitePlot = factor(SitePlot), 
+                        PlotType = factor(PlotType),
+                        year = factor(year), 
+                        jnight.f = factor(jnight),
+                          manual.id = factor(manual.id), 
+                          behavior = factor(behavior), 
+                          guild = factor(guild)) %>%
+  dplyr::mutate(s.temperature = as.numeric(scale(temperature)),
+         s.rainfall = as.numeric(scale(rainfall)),
+         s.PC1 = as.numeric(scale(PC1))) 
+
+summary(bats)
+
+dim(bats)
+# 244470     33
+sum(bats$batpass)
+# 106519
+
+## Color palette for later 
+bats$PlotType <- factor(bats$PlotType, levels=c("Open", "Interior", "Canopy"))
+levels(bats$PlotType)
+plot.cols <- c("#F57969", "#669F85", "#6D5AA1") 
+
+summary(bats$jnight)
+ 
+### Create a "Season" categorical variable split into three categories evenly:
+bats1 <- bats %>% 
+  dplyr::mutate(season = factor(case_when(
+    jnight %in% 124:170 ~ "Early", 
+    jnight %in% 171:217 ~ "Medium", 
+    jnight %in% 218:263 ~ "Late"))) %>% 
+  dplyr::mutate(season = 
+                  factor(season, levels=c("Early", "Medium", "Late"))) 
+summary(bats1)
+
+summary(bats1$season) 
+# Early Medium   Late 
+# 80970  93510  69990
+ levels(bats1$season)
+```
+
+
+## Wrangle an occurence matric 
+rows = site - plot - nights
+columns = bat taxa 
+n = number of times each taxa was identified per site - plot - night 
+
+https://rstudio-pubs-static.s3.amazonaws.com/545184_87dac405e4b145f8adff2c4a99e938fc.html 
+
+https://stackoverflow.com/questions/13281303/creating-co-occurrence-matrix
+```{r}
+
+bats1$siteplotnight <- factor(paste0(bats1$SitePlotYear, "-", bats1$night)) 
+
+summary(bats1$siteplotnight) 
+
+## Dissolve the behavior column and aggregate back to raw number of passes
+bats2 <- bats1 %>% select(-behavior)  %>% 
+  group_by(siteplotnight, manual.id) %>% 
+  dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
+# that worked 
+## 81490 obs 
+
+
+# test <- bats2 %>%
+#   pivot_wider(
+#     names_from = manual.id, 
+#     values_fill = batpass1
+#   )
+
+
+term_doc <- xtabs(~ siteplotnight + manual.id, data=bats2, sparse = TRUE)
+co_occur <- crossprod(term_doc, bats2$batpass1)
+diag(co_occur) <- 0
+co_occur
+
+
+taxa <- unique(bats2$manual.id) #creates list of each unique species
+samples <- sort(unique(bats2$siteplotnight)) #creates list of each unique site or sample
+
+#make empty matrix "data1" ready to fill in
+data1 <- matrix(nrow = length(samples), ncol = length(taxa), dimnames = list(samples,taxa))
+
+for(r in 1:nrow(bats2)){
+  samp <- bats2[r, 1]
+  tax <- bats2[r, 2]
+  data1[samp,tax] <- bats2[r, 3]
+} # 1, 2, 3 here relate the the column number in the raw data in which the sample name, species name and data are in
+
+# data1[is.na(data1)] <- 0   #convert NA's to 0
+
+```
+
