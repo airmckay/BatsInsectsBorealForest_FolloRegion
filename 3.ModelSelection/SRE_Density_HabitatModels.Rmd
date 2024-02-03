@@ -615,13 +615,17 @@ drop1(PL4b.p3)
 # PlotType:s.PC1  2 8470.5
 # s.PC1:season    2 8454.5
 
-tab_model(PL4b.p3) # this explains 7% 
+tab_model(PL4b.p3) # this explains 7% (marginal), conditional = 31% 
 tab_model(PL4b.p2) # this explains 7% 
 tab_model(PL4b.p1) # this explains 14%
 
 ```
+"The marginal (no random effects) and conditional (with random effects) can be estimated by predicting the responses for the fixed-only (marginal) and full (conditional) models, correlating to the response data points, and squaring.
 
+Nakagawa, S., and Schielzeth, H. (2013). A general and simple method for obtaining R2 from generalized linear mixed-effects models. Methods in Ecology and Evolution, 4(2), 133–142. doi:10.1111/j.2041-210x.2012.00261.x
 
+Nakagawa, S., Johnson, P. C. D., and Schielzeth, H. (2017). The coefficient of determination R2 and intra-class correlation coefficient from generalized linear mixed-effects models revisited and expanded. Journal of The Royal Society Interface, 14(134), 20170213. doi:10.1098/rsif.2017.0213"
+https://stats.stackexchange.com/questions/586777/model-fit-r2-for-glmmtmb
 
 ## Model validation 
 ```{r}

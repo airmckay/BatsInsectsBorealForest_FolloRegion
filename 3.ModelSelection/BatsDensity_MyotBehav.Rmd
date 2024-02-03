@@ -393,6 +393,9 @@ tail(newdataf)
 plot.cols
 # "#F57969" "#669F85" "#6D5AA1"
 # Create the ggplot
+seas.labs <- c("Season:Early", "Season:Mid", "Season:Late")
+names(seas.labs) <- c("Early", "Medium", "Late")
+
 pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
                      group = PlotType, color = PlotType, fill = PlotType)) +
   
@@ -406,7 +409,8 @@ pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
   scale_fill_manual(values = plot.cols) +
   
   # Facet the plot by Season
-  facet_wrap(~season, scales = "fixed", ncol = 3) +
+  facet_wrap(~season, scales = "fixed", ncol = 3, 
+             labeller = labeller(season = seas.labs))  +
   
   # Customize the theme for a cleaner look
   theme_minimal() +
@@ -416,7 +420,7 @@ pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
  
   # Change legend title
   labs(x = "Openness", y = "Batpasses per night", 
-       title = "Feeding activity") +
+       title = "Myotis feeding activity") +
   scale_color_manual(name = "Habitat", values = plot.cols) +
   scale_fill_manual(name = "Habitat", values = plot.cols)
 pred.f
@@ -620,6 +624,9 @@ tail(newdatac)
 # Set the colors for each level
 plot.cols
 
+seas.labs <- c("Season:Early", "Season:Mid", "Season:Late")
+names(seas.labs) <- c("Early", "Medium", "Late")
+
 # Create the ggplot
 pred.c <- ggplot(newdatac, aes(x = s.PC1, y = predicted,
                      group = PlotType, color = PlotType, 
@@ -635,17 +642,18 @@ pred.c <- ggplot(newdatac, aes(x = s.PC1, y = predicted,
   scale_fill_manual(values = plot.cols) +
   
   # Facet the plot by Season
-  facet_wrap(~season, scales = "fixed", ncol = 3) +
+  facet_wrap(~season, scales = "fixed", ncol = 3,
+             labeller = labeller(season = seas.labs)) +
   
   # Customize the theme for a cleaner look
   theme_minimal() +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         text = element_text(size = 15),
         plot.title = element_text(face = "bold")) +
  
   # Change legend title
   labs(x = "Openness", y = "Batpasses per night", 
-       title = "Commuting activity") +
+       title = "Myotis commuting activity") +
   scale_color_manual(name = "Habitat", values = plot.cols) +
   scale_fill_manual(name = "Habitat", values = plot.cols) 
 pred.c
@@ -656,7 +664,7 @@ pred.c
 windows()
 library(cowplot)
 behavpred <- cowplot::plot_grid(pred.f, pred.c, labels = c("a.", "b."), nrow = 2)
-
+behavpred
 ## Checking color blindness 
 cvdPlot(behavpred, layout = "deuteranope")
 
