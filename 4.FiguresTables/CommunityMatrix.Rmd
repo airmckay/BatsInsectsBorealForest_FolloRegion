@@ -119,26 +119,49 @@ https://rstudio-pubs-static.s3.amazonaws.com/545184_87dac405e4b145f8adff2c4a99e9
 https://stackoverflow.com/questions/13281303/creating-co-occurrence-matrix
 ```{r}
 bats1$siteplotnight <- factor(paste0(bats1$SitePlotYear, "-", bats1$night)) 
+bats1$siteplotseason <- factor(paste0(bats1$SitePlotYear, "-", bats1$season)) 
 
-summary(bats1$siteplotnight) 
+summary(bats1$siteplotnight) # 8149 levels
+summary(bats1$siteplotseason) # 202 levels 
 
 ## Dissolve the behavior column and aggregate back to raw number of passes
-### For this to work, I also need to remove zero nights. 
+### For this to work, I also need to remove zero nights.
+# 
+# bats2 <- bats1 %>% filter(batpass>0) %>% 
+#   select(-behavior)  %>% 
+#   group_by(siteplotnight, manual.id) %>% 
+#   dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
+# dim(bats2)
+# # that worked 
+# ## 81490 obs (with zeroes)
+# ## 19456 obs   
+# 
+# 
+# batmat <- spread(bats2, manual.id, batpass1, fill = 0)
+# batmat$siteplotnight <- as.character(batmat$siteplotnight)
+# batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotnight") %>% as.data.frame()
+# summary(batmat1)
+# #6730 obs 
+
+### This is way too much information for the NMDS To handle 
+### Try something more compact 
+
 bats2 <- bats1 %>% filter(batpass>0) %>% 
   select(-behavior)  %>% 
-  group_by(siteplotnight, manual.id) %>% 
+  group_by(siteplotseason, manual.id) %>% 
   dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
 dim(bats2)
 # that worked 
-## 81490 obs (with zeroes)
 ## 19456 obs   
-
+## 1466  obs 
 
 batmat <- spread(bats2, manual.id, batpass1, fill = 0)
-batmat$siteplotnight <- as.character(batmat$siteplotnight)
-batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotnight") %>% as.data.frame()
+batmat$siteplotseason <- as.character(batmat$siteplotseason)
+batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotseason") %>% as.data.frame()
 summary(batmat1)
-#6730 obs 
+#202 obs 
+
+
 
 ```
 
@@ -156,17 +179,29 @@ summary(batmat1)
 # 
 # goodness(bat.mds) # Produces a results of test statistics for goodness of fit for each point
 
-stressplot(bat.mds) # Produces a Shepards diagram
+#stressplot(bat.mds) # Produces a Shepards diagram
 
+# bat.mds1 <- metaMDS(batmat1, distance = "bray", k = 2)
+# saveRDS(bat.mds1, file = "./BatNMDS1_k3_max999_waTRUE.RDS")
+# 
+# beep()
+# 
+# goodness(bat.mds1) # Produces a results of test statistics for goodness of fit for each point
+# 
+# stressplot(bat.mds1) # Produces a Shepards diagram
 
-bat.mds1 <- metaMDS(batmat1, distance = "bray", k = 2)
-#saveRDS(bat.mds, file = "./BatNMDS_k3_max999_waTRUE.RDS")
+b.mds <- metaMDS(batmat1, distance = "bray",
+                   k = 3,
+          maxit = 999,
+          trymax = 500,
+          wascores = TRUE)
+saveRDS(b.mds, file = "./BatNMDS_season.RDS")
 
 beep()
 
 goodness(bat.mds) # Produces a results of test statistics for goodness of fit for each point
 
-stressplot(bat.mds) # Produces a Shepards diagram
+#stressplot(bat.mds) # Produces a Shepards diagram
 
 ```
 
