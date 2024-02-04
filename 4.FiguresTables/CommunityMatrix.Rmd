@@ -255,7 +255,7 @@ goodness(b.mds) # Produces a results of test statistics for goodness of fit for 
 stressplot(b.mds) # Produces a Shepards diagram
 
 
-bat.env <- bats1 %>% select(SitePlotYear, PlotType, year) %>% distinct()
+bat.env <- bats1 %>% select(SitePlotYear, Site, PlotType, year) %>% distinct()
 
 plot1 <- ordiplot(b.mds)
 sites.long1 <- sites.long(plot1, env.data = bat.env) 
@@ -278,6 +278,28 @@ plotgg1 + stat_ellipse()
 https://jkzorz.github.io/2020/04/04/NMDS-extras.html
 
 ```{r}
-en = envfit(b.mds, bat.env, permutations = 999, na.rm = TRUE) 
+bat.env1 <- bat.env %>% remove_rownames %>% column_to_rownames(var="SitePlotYear") %>% as.data.frame()
+
+bat.env2 <- bat.env1 %>% select(-c(Site, year)) 
+
+en = envfit(b.mds, bat.env2, permutations = 999, na.rm = TRUE) 
+en
+
+# Goodness of fit:
+#                  r2 Pr(>r)  
+# SitePlotYear 1.0000  1.000  
+# Site         0.2507  0.026 *
+# PlotType     0.0296  0.364  
+# year         0.0280  0.142
+
+data.scores = scores(b.mds)
+ds <- as.data.frame(data.scores$sites)
+ds$SitePlotYear = rownames(ds) 
+ds1 <- left_join(ds, bat.env) 
+
+en_coord_cat = as.data.frame(scores(en, "factors")) * ordiArrowMul(en)
+
+plot(b.mds)
+plot(en) 
 ```
 
