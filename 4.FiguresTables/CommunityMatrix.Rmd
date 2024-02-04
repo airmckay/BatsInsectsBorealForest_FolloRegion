@@ -195,13 +195,89 @@ b.mds <- metaMDS(batmat1, distance = "bray",
           maxit = 999,
           trymax = 500,
           wascores = TRUE)
-saveRDS(b.mds, file = "./BatNMDS_season.RDS")
+# saveRDS(b.mds, file = "./BatNMDS_season.RDS")
 
-beep()
+goodness(b.mds) # Produces a results of test statistics for goodness of fit for each point
 
-goodness(bat.mds) # Produces a results of test statistics for goodness of fit for each point
+stressplot(b.mds) # Produces a Shepards diagram
 
-#stressplot(bat.mds) # Produces a Shepards diagram
+```
 
+
+## Plot and ordinate 
+https://rstudio-pubs-static.s3.amazonaws.com/694016_e2d53d65858d4a1985616fa3855d237f.html#3_Example_1:_Dune_meadow_data 
+```{r}
+library(BiodiversityR)
+bat.env <- bats1 %>% select(siteplotseason, SitePlotYear, PlotType, year) %>% distinct()
+
+plot1 <- ordiplot(b.mds)
+sites.long1 <- sites.long(plot1, env.data = bat.env) 
+
+plotgg1 <- ggplot(data=sites.long1, 
+               aes(x=axis1, y=axis2, color=PlotType)) + 
+    xlab("NMDS1") +
+    ylab("NMDS2") +  
+    geom_point(aes(shape=PlotType), 
+               size=3) +
+  theme_minimal() + 
+  scale_color_manual(values = plot.cols) 
+
+plotgg1 + stat_ellipse() 
+
+```
+
+
+## Try again, even simpler 
+
+```{r}
+bats2 <- bats1 %>% filter(batpass>0) %>% 
+  select(-behavior)  %>% 
+  group_by(SitePlotYear, manual.id) %>% 
+  dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
+dim(bats2)
+#596 3
+
+batmat <- spread(bats2, manual.id, batpass1, fill = 0)
+batmat$SitePlotYear <- as.character(batmat$SitePlotYear)
+batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="SitePlotYear") %>% as.data.frame()
+summary(batmat1)
+#69 obs 
+
+b.mds <- metaMDS(batmat1, distance = "bray",
+                   k = 3,
+          maxit = 999,
+          trymax = 500,
+          wascores = TRUE)
+# saveRDS(b.mds, file = "./BatNMDS_season.RDS")
+
+goodness(b.mds) # Produces a results of test statistics for goodness of fit for each point
+
+stressplot(b.mds) # Produces a Shepards diagram
+
+
+bat.env <- bats1 %>% select(SitePlotYear, PlotType, year) %>% distinct()
+
+plot1 <- ordiplot(b.mds)
+sites.long1 <- sites.long(plot1, env.data = bat.env) 
+
+plotgg1 <- ggplot(data=sites.long1, 
+               aes(x=axis1, y=axis2, color=PlotType)) + 
+    xlab("NMDS1") +
+    ylab("NMDS2") +  
+    geom_point(aes(shape=PlotType), 
+               size=3) +
+  theme_minimal() + 
+  scale_color_manual(values = plot.cols) 
+
+plotgg1 + stat_ellipse() 
+
+```
+
+
+## Run the env.fit analysis 
+https://jkzorz.github.io/2020/04/04/NMDS-extras.html
+
+```{r}
+en = envfit(b.mds, bat.env, permutations = 999, na.rm = TRUE) 
 ```
 
