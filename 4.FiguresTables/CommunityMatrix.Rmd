@@ -118,45 +118,55 @@ https://rstudio-pubs-static.s3.amazonaws.com/545184_87dac405e4b145f8adff2c4a99e9
 
 https://stackoverflow.com/questions/13281303/creating-co-occurrence-matrix
 ```{r}
-
 bats1$siteplotnight <- factor(paste0(bats1$SitePlotYear, "-", bats1$night)) 
 
 summary(bats1$siteplotnight) 
 
 ## Dissolve the behavior column and aggregate back to raw number of passes
-bats2 <- bats1 %>% select(-behavior)  %>% 
+### For this to work, I also need to remove zero nights. 
+bats2 <- bats1 %>% filter(batpass>0) %>% 
+  select(-behavior)  %>% 
   group_by(siteplotnight, manual.id) %>% 
   dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
+dim(bats2)
 # that worked 
-## 81490 obs 
+## 81490 obs (with zeroes)
+## 19456 obs   
 
 
-# test <- bats2 %>%
-#   pivot_wider(
-#     names_from = manual.id, 
-#     values_fill = batpass1
-#   )
+batmat <- spread(bats2, manual.id, batpass1, fill = 0)
+batmat$siteplotnight <- as.character(batmat$siteplotnight)
+batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotnight") %>% as.data.frame()
+summary(batmat1)
+#6730 obs 
+
+```
+
+## Ordinate
+
+```{r}
+# bat.mds <- metaMDS(batmat1, distance = "bray",      
+#                    k = 3,
+#           maxit = 999, 
+#           trymax = 500,
+#           wascores = TRUE)
+# saveRDS(bat.mds, file = "./BatNMDS_k3_max999_waTRUE.RDS")
+# 
+# beep()
+# 
+# goodness(bat.mds) # Produces a results of test statistics for goodness of fit for each point
+
+stressplot(bat.mds) # Produces a Shepards diagram
 
 
-term_doc <- xtabs(~ siteplotnight + manual.id, data=bats2, sparse = TRUE)
-co_occur <- crossprod(term_doc, bats2$batpass1)
-diag(co_occur) <- 0
-co_occur
+bat.mds1 <- metaMDS(batmat1, distance = "bray", k = 2)
+#saveRDS(bat.mds, file = "./BatNMDS_k3_max999_waTRUE.RDS")
 
+beep()
 
-taxa <- unique(bats2$manual.id) #creates list of each unique species
-samples <- sort(unique(bats2$siteplotnight)) #creates list of each unique site or sample
+goodness(bat.mds) # Produces a results of test statistics for goodness of fit for each point
 
-#make empty matrix "data1" ready to fill in
-data1 <- matrix(nrow = length(samples), ncol = length(taxa), dimnames = list(samples,taxa))
-
-for(r in 1:nrow(bats2)){
-  samp <- bats2[r, 1]
-  tax <- bats2[r, 2]
-  data1[samp,tax] <- bats2[r, 3]
-} # 1, 2, 3 here relate the the column number in the raw data in which the sample name, species name and data are in
-
-# data1[is.na(data1)] <- 0   #convert NA's to 0
+stressplot(bat.mds) # Produces a Shepards diagram
 
 ```
 
