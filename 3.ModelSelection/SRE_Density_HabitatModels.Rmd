@@ -1045,15 +1045,15 @@ general<- ggplot(bats1 %>%
                        sec_axis(~.*1, 
                             name ="Bat passes per night")) +
   geom_vline(xintercept = 172, linetype="longdash", 
-                color = "#cc8400", size=1.5) +
+                color = "#cc8400", linewidth=1.5) +
   geom_vline(xintercept = 124, linetype="dotted", 
-                color = "#ffb732", size=1.5) +
+                color = "#ffb732", linewidth=1.5) +
   geom_vline(xintercept = 171, linetype="dotted", 
-                color = "#ffb732", size=1.5) +
+                color = "#ffb732", linewidth=1.5) +
   geom_vline(xintercept = 217, linetype="dotted", 
-                color = "#ffb732", size=1.5) +
+                color = "#ffb732", linewidth=1.5) +
   geom_vline(xintercept = 263, linetype="dotted", 
-                color = "#ffb732", size=1.5)
+                color = "#ffb732", linewidth=1.5)
 general
 
 summary(bats1$day_length)

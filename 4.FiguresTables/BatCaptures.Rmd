@@ -1,0 +1,83 @@
+---
+title: "BatCaptures"
+output: html_document
+date: "2024-02-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(beepr)
+library(lubridate)
+library(purrr)
+library(janitor)
+#renv::install("rstudio/renv")
+library(renv)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+library(ggstats)
+library(ggpmisc)
+library(gginnards)
+library(ggplot2)
+library(colorBlindness)
+library(vegan) 
+library(TMB)
+library(glmmTMB)
+library(DHARMa)
+library(performance)
+library(car)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(modelsummary)
+library(gt)
+library(beepr)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs"
+
+file.name <- "BatCaptures"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs/BatCaptures_2024-02-05"
+```
+
+
+
+```{r}
+caps <- read_excel("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/4.FiguresTables/Inputs/BatCaptures.xlsx")
+
+caps$Repro <- factor(caps$Repro)
+caps$Sex <- factor(caps$Sex)
+caps$date <- as.Date(caps$Date, format = "%d.%m.%Y")
+
+ggplot(caps, aes(x = date, y = Repro, color = Sex)) +
+  geom_point(size = 3) + xlab("") + theme_minimal()
+
+table(caps$Repro)
+
+```
+

@@ -38,6 +38,8 @@ library(colorBlindness)
 library(vegan) 
 library(gt)
 library(beepr)
+library(BiodiversityR)
+
 
 ## Setup output directory 
 output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs"
@@ -90,6 +92,8 @@ bats$PlotType <- factor(bats$PlotType, levels=c("Open", "Interior", "Canopy"))
 levels(bats$PlotType)
 plot.cols <- c("#F57969", "#669F85", "#6D5AA1") 
 
+## Print out plot type legend 
+
 summary(bats$jnight)
  
 ### Create a "Season" categorical variable split into three categories evenly:
@@ -106,6 +110,13 @@ summary(bats1$season)
 # Early Medium   Late 
 # 80970  93510  69990
  levels(bats1$season)
+ 
+bats1$siteplotnight <- factor(paste0(bats1$SitePlotYear, "-", bats1$night)) 
+bats1$siteplotseason <- factor(paste0(bats1$SitePlotYear, "-", bats1$season)) 
+
+summary(bats1$siteplotnight) # 8149 levels
+summary(bats1$siteplotseason) # 202 levels 
+
 ```
 
 
@@ -117,57 +128,25 @@ n = number of times each taxa was identified per site - plot - night
 https://rstudio-pubs-static.s3.amazonaws.com/545184_87dac405e4b145f8adff2c4a99e938fc.html 
 
 https://stackoverflow.com/questions/13281303/creating-co-occurrence-matrix
+
+https://rstudio-pubs-static.s3.amazonaws.com/694016_e2d53d65858d4a1985616fa3855d237f.html#3_Example_1:_Dune_meadow_data  
 ```{r}
-bats1$siteplotnight <- factor(paste0(bats1$SitePlotYear, "-", bats1$night)) 
-bats1$siteplotseason <- factor(paste0(bats1$SitePlotYear, "-", bats1$season)) 
 
-summary(bats1$siteplotnight) # 8149 levels
-summary(bats1$siteplotseason) # 202 levels 
-
-## Dissolve the behavior column and aggregate back to raw number of passes
-### For this to work, I also need to remove zero nights.
-# 
 # bats2 <- bats1 %>% filter(batpass>0) %>% 
 #   select(-behavior)  %>% 
-#   group_by(siteplotnight, manual.id) %>% 
+#   group_by(siteplotseason, manual.id) %>% 
 #   dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
 # dim(bats2)
 # # that worked 
-# ## 81490 obs (with zeroes)
 # ## 19456 obs   
-# 
+# ## 1466  obs 
 # 
 # batmat <- spread(bats2, manual.id, batpass1, fill = 0)
-# batmat$siteplotnight <- as.character(batmat$siteplotnight)
-# batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotnight") %>% as.data.frame()
+# batmat$siteplotseason <- as.character(batmat$siteplotseason)
+# batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotseason") %>% as.data.frame()
 # summary(batmat1)
-# #6730 obs 
-
-### This is way too much information for the NMDS To handle 
-### Try something more compact 
-
-bats2 <- bats1 %>% filter(batpass>0) %>% 
-  select(-behavior)  %>% 
-  group_by(siteplotseason, manual.id) %>% 
-  dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
-dim(bats2)
-# that worked 
-## 19456 obs   
-## 1466  obs 
-
-batmat <- spread(bats2, manual.id, batpass1, fill = 0)
-batmat$siteplotseason <- as.character(batmat$siteplotseason)
-batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotseason") %>% as.data.frame()
-summary(batmat1)
-#202 obs 
-
-
-
-```
-
-## Ordinate
-
-```{r}
+# #202 obs 
+# 
 # bat.mds <- metaMDS(batmat1, distance = "bray",      
 #                    k = 3,
 #           maxit = 999, 
@@ -190,46 +169,43 @@ summary(batmat1)
 # 
 # stressplot(bat.mds1) # Produces a Shepards diagram
 
-b.mds <- metaMDS(batmat1, distance = "bray",
-                   k = 3,
-          maxit = 999,
-          trymax = 500,
-          wascores = TRUE)
-# saveRDS(b.mds, file = "./BatNMDS_season.RDS")
+# b.mds <- metaMDS(batmat1, distance = "bray",
+#                    k = 3,
+#           maxit = 999,
+#           trymax = 500,
+#           wascores = TRUE)
+# # saveRDS(b.mds, file = "./BatNMDS_season.RDS")
+# 
+# goodness(b.mds) # Produces a results of test statistics for goodness of fit for each point
+# 
+# stressplot(b.mds) # Produces a Shepards diagram
 
-goodness(b.mds) # Produces a results of test statistics for goodness of fit for each point
-
-stressplot(b.mds) # Produces a Shepards diagram
-
-```
-
-
-## Plot and ordinate 
-https://rstudio-pubs-static.s3.amazonaws.com/694016_e2d53d65858d4a1985616fa3855d237f.html#3_Example_1:_Dune_meadow_data 
-```{r}
-library(BiodiversityR)
-bat.env <- bats1 %>% select(siteplotseason, SitePlotYear, PlotType, year) %>% distinct()
-
-plot1 <- ordiplot(b.mds)
-sites.long1 <- sites.long(plot1, env.data = bat.env) 
-
-plotgg1 <- ggplot(data=sites.long1, 
-               aes(x=axis1, y=axis2, color=PlotType)) + 
-    xlab("NMDS1") +
-    ylab("NMDS2") +  
-    geom_point(aes(shape=PlotType), 
-               size=3) +
-  theme_minimal() + 
-  scale_color_manual(values = plot.cols) 
-
-plotgg1 + stat_ellipse() 
+# bat.env <- bats1 %>% select(siteplotseason, SitePlotYear, PlotType, year) %>% distinct()
+# 
+# plot1 <- ordiplot(b.mds)
+# sites.long1 <- sites.long(plot1, env.data = bat.env) 
+# 
+# plotgg1 <- ggplot(data=sites.long1, 
+#                aes(x=axis1, y=axis2, color=PlotType)) + 
+#     xlab("NMDS1") +
+#     ylab("NMDS2") +  
+#     geom_point(aes(shape=PlotType), 
+#                size=3) +
+#   theme_minimal() + 
+#   scale_color_manual(values = plot.cols) 
+# 
+# plotgg1 + stat_ellipse() 
 
 ```
+
+
+
 
 
 ## Try again, even simpler 
 
 ```{r}
+
 bats2 <- bats1 %>% filter(batpass>0) %>% 
   select(-behavior)  %>% 
   group_by(SitePlotYear, manual.id) %>% 
@@ -260,8 +236,9 @@ bat.env <- bats1 %>% select(SitePlotYear, Site, PlotType, year) %>% distinct()
 plot1 <- ordiplot(b.mds)
 sites.long1 <- sites.long(plot1, env.data = bat.env) 
 
+## Euclidean distance with coord_fixed
 plotgg1 <- ggplot(data=sites.long1, 
-               aes(x=axis1, y=axis2, color=PlotType)) + 
+               aes(x=axis1, y=axis2, color=PlotType, fill = PlotType)) + 
     xlab("NMDS1") +
     ylab("NMDS2") +  
     geom_point(aes(shape=PlotType), 
@@ -269,7 +246,69 @@ plotgg1 <- ggplot(data=sites.long1,
   theme_minimal() + 
   scale_color_manual(values = plot.cols) 
 
-plotgg1 + stat_ellipse() 
+plotgg1 + 
+  stat_ellipse(type = "euclid", geom = "polygon", alpha = 0.4) +
+  coord_fixed() + 
+  scale_fill_manual(values = plot.cols) 
+
+
+## Normal distance
+plotgg1 <- ggplot(data=sites.long1, 
+               aes(x=axis1, y=axis2, color=PlotType, fill = PlotType)) + 
+    xlab("NMDS1") +
+    ylab("NMDS2") +  
+    geom_point(aes(shape=PlotType), 
+               size=3) +
+  theme_minimal() + 
+  theme(text = element_text(size = 15)) + 
+  scale_color_manual(values = plot.cols) +
+  theme(legend.position = "bottom") + 
+  theme(legend.title=element_blank())
+  
+
+plotgg2 <- plotgg1 + 
+  stat_ellipse(type = "norm", geom = "polygon", alpha = 0.4) +
+  coord_fixed() + 
+  scale_fill_manual(values = plot.cols) 
+
+plotgg2
+
+# Plot with site variation 
+
+## arrange sites according to increasing PC1 
+
+batpc1 <- bats1 %>% group_by(Site) %>%  
+  dplyr::summarise(pc1 = mean(PC1)) %>% arrange(pc1) 
+SiteOrder <- batpc1$Site
+
+bdf <- bats1 %>%  select(c(SitePlotYear, Site, SitePlot, PlotType, year)) %>% distinct()
+
+batpc2 <- left_join(bdf, batpc1) %>% distinct() %>% arrange(pc1)
+
+batsum <- bats1 %>% group_by(SitePlotYear) %>% 
+  dplyr::summarize(batpass = sum(batpass)) 
+
+batpc3 <- left_join(batpc2, batsum ) %>% arrange(pc1)
+
+neworder <- unique(batpc3$SitePlot)
+neworder
+
+batpc3$SitePlot1 <- factor(batpc3$SitePlot, levels = neworder)
+levels(batpc3$SitePlot1)
+
+sites <- ggplot(batpc3) + 
+  geom_col(aes(x = SitePlot1, y = batpass, fill = PlotType), position = "stack") +
+  facet_wrap(~year, nrow = 2) + 
+  theme_minimal() + 
+  theme(legend.position = "bottom") +
+  theme(text=element_text(size=10)) + 
+  scale_fill_manual(name = "Habitat", values = plot.cols) + 
+  xlab("") + ylab("") + coord_flip() 
+sites
+
+
+## Figure 4
+cowplot::plot_grid(plotgg2, sites, nrow = 1, labels = c("a.", "b."), label_x = 0.1, label_y = 0.1)
 
 ```
 
@@ -282,15 +321,25 @@ bat.env1 <- bat.env %>% remove_rownames %>% column_to_rownames(var="SitePlotYear
 
 bat.env2 <- bat.env1 %>% select(-c(Site, year)) 
 
-en = envfit(b.mds, bat.env2, permutations = 999, na.rm = TRUE) 
-en
+en1 = envfit(b.mds, bat.env1, permutations = 999, na.rm = TRUE) 
+en1
 
 # Goodness of fit:
-#                  r2 Pr(>r)  
-# SitePlotYear 1.0000  1.000  
-# Site         0.2507  0.026 *
-# PlotType     0.0296  0.364  
-# year         0.0280  0.142
+#              r2 Pr(>r)  
+# Site     0.2505  0.043 *
+# PlotType 0.0296  0.424  
+# year     0.0280  0.151  
+
+en2 = envfit(b.mds, bat.env2, permutations = 999, na.rm = TRUE) 
+en2
+
+# ***FACTORS:
+# 
+# Centroids:
+#                    NMDS1   NMDS2
+# PlotTypeOpen      0.0516 -0.0254
+# PlotTypeInterior -0.0182  0.0537
+# PlotTypeCanopy   -0.0334 -0.0283
 
 data.scores = scores(b.mds)
 ds <- as.data.frame(data.scores$sites)
