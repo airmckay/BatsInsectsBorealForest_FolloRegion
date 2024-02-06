@@ -42,7 +42,7 @@ library(BiodiversityR)
 
 
 ## Setup output directory 
-output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs"
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/4.FiguresTables/Outputs/"
 
 file.name <- "CommunityMatrix"
 
@@ -56,7 +56,7 @@ output_today
 
 dir.create(output_today)
 output_today
-# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Outputs/SRE.models_2024-02-02"
+
 ```
 
 
@@ -93,7 +93,6 @@ levels(bats$PlotType)
 plot.cols <- c("#F57969", "#669F85", "#6D5AA1") 
 
 ## Print out plot type legend 
-
 summary(bats$jnight)
  
 ### Create a "Season" categorical variable split into three categories evenly:
@@ -120,7 +119,7 @@ summary(bats1$siteplotseason) # 202 levels
 ```
 
 
-## Wrangle an occurence matric 
+## Wrangle an occurence matrix and run the NMDS 
 rows = site - plot - nights
 columns = bat taxa 
 n = number of times each taxa was identified per site - plot - night 
@@ -130,79 +129,7 @@ https://rstudio-pubs-static.s3.amazonaws.com/545184_87dac405e4b145f8adff2c4a99e9
 https://stackoverflow.com/questions/13281303/creating-co-occurrence-matrix
 
 https://rstudio-pubs-static.s3.amazonaws.com/694016_e2d53d65858d4a1985616fa3855d237f.html#3_Example_1:_Dune_meadow_data  
-```{r}
 
-# bats2 <- bats1 %>% filter(batpass>0) %>% 
-#   select(-behavior)  %>% 
-#   group_by(siteplotseason, manual.id) %>% 
-#   dplyr::summarise(batpass1 = sum(batpass)) %>% distinct() 
-# dim(bats2)
-# # that worked 
-# ## 19456 obs   
-# ## 1466  obs 
-# 
-# batmat <- spread(bats2, manual.id, batpass1, fill = 0)
-# batmat$siteplotseason <- as.character(batmat$siteplotseason)
-# batmat1 <- batmat %>% remove_rownames %>% column_to_rownames(var="siteplotseason") %>% as.data.frame()
-# summary(batmat1)
-# #202 obs 
-# 
-# bat.mds <- metaMDS(batmat1, distance = "bray",      
-#                    k = 3,
-#           maxit = 999, 
-#           trymax = 500,
-#           wascores = TRUE)
-# saveRDS(bat.mds, file = "./BatNMDS_k3_max999_waTRUE.RDS")
-# 
-# beep()
-# 
-# goodness(bat.mds) # Produces a results of test statistics for goodness of fit for each point
-
-#stressplot(bat.mds) # Produces a Shepards diagram
-
-# bat.mds1 <- metaMDS(batmat1, distance = "bray", k = 2)
-# saveRDS(bat.mds1, file = "./BatNMDS1_k3_max999_waTRUE.RDS")
-# 
-# beep()
-# 
-# goodness(bat.mds1) # Produces a results of test statistics for goodness of fit for each point
-# 
-# stressplot(bat.mds1) # Produces a Shepards diagram
-
-# b.mds <- metaMDS(batmat1, distance = "bray",
-#                    k = 3,
-#           maxit = 999,
-#           trymax = 500,
-#           wascores = TRUE)
-# # saveRDS(b.mds, file = "./BatNMDS_season.RDS")
-# 
-# goodness(b.mds) # Produces a results of test statistics for goodness of fit for each point
-# 
-# stressplot(b.mds) # Produces a Shepards diagram
-
-# bat.env <- bats1 %>% select(siteplotseason, SitePlotYear, PlotType, year) %>% distinct()
-# 
-# plot1 <- ordiplot(b.mds)
-# sites.long1 <- sites.long(plot1, env.data = bat.env) 
-# 
-# plotgg1 <- ggplot(data=sites.long1, 
-#                aes(x=axis1, y=axis2, color=PlotType)) + 
-#     xlab("NMDS1") +
-#     ylab("NMDS2") +  
-#     geom_point(aes(shape=PlotType), 
-#                size=3) +
-#   theme_minimal() + 
-#   scale_color_manual(values = plot.cols) 
-# 
-# plotgg1 + stat_ellipse() 
-
-```
-
-
-
-
-
-## Try again, even simpler 
 
 ```{r}
 
@@ -276,7 +203,6 @@ plotgg2
 # Plot with site variation 
 
 ## arrange sites according to increasing PC1 
-
 batpc1 <- bats1 %>% group_by(Site) %>%  
   dplyr::summarise(pc1 = mean(PC1)) %>% arrange(pc1) 
 SiteOrder <- batpc1$Site
@@ -303,12 +229,27 @@ sites <- ggplot(batpc3) +
   theme(legend.position = "bottom") +
   theme(text=element_text(size=10)) + 
   scale_fill_manual(name = "Habitat", values = plot.cols) + 
-  xlab("") + ylab("") + coord_flip() 
+  xlab("") + ylab("") + 
+  scale_x_discrete(labels=c("FF07-OB" = "07", "FF07-IB" = "07", "FF07-CB" = "07",
+                            "FF04-OB" = "04", "FF04-IB" = "04", "FF04-CB" = "04",
+                            "FF05-OB" = "05", "FF05-IB" = "05", "FF05-CB" = "05",
+                            "FF02-OB" = "02", "FF02-IB" = "02", "FF02-CB" = "02",
+                            "FF08-OB" = "08", "FF08-IB" = "08", "FF08-CB" = "08",
+                            "FF11-OB" = "11", "FF11-IB" = "11", "FF11-CB" = "11",
+                            "FF01-OB" = "01", "FF01-IB" = "01", "FF01-CB" = "01",
+                            "FF03-OB" = "03", "FF03-IB" = "03", "FF03-CB" = "03",
+                            "FF12-OB" = "12", "FF12-IB" = "12", "FF12-CB" = "12",
+                            "FF06-OB" = "06", "FF06-IB" = "06", "FF06-CB" = "06",
+                            "FF09-OB" = "09", "FF09-IB" = "09", "FF09-CB" = "09",
+                            "FF10-OB" = "10", "FF10-IB" = "10", "FF10-CB" = "10")) +
+  coord_flip() 
 sites
 
 
 ## Figure 4
 cowplot::plot_grid(plotgg2, sites, nrow = 1, labels = c("a.", "b."), label_x = 0.1, label_y = 0.1)
+
+ggsave(path = output_today, filename = "CommunityFigure.tiff", width = 10, height = 8, device='tiff', dpi=300) 
 
 ```
 

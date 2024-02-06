@@ -16,6 +16,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Prediction plots 
 
+## Notes and references
+
+"The marginal (no random effects) and conditional (with random effects) can be estimated by predicting the responses for the fixed-only (marginal) and full (conditional) models, correlating to the response data points, and squaring.
+
+Nakagawa, S., and Schielzeth, H. (2013). A general and simple method for obtaining R2 from generalized linear mixed-effects models. Methods in Ecology and Evolution, 4(2), 133–142. doi:10.1111/j.2041-210x.2012.00261.x
+
+Nakagawa, S., Johnson, P. C. D., and Schielzeth, H. (2017). The coefficient of determination R2 and intra-class correlation coefficient from generalized linear mixed-effects models revisited and expanded. Journal of The Royal Society Interface, 14(134), 20170213. doi:10.1098/rsif.2017.0213"
+https://stats.stackexchange.com/questions/586777/model-fit-r2-for-glmmtmb
+
 
 ```{r}
 library(data.table)
@@ -123,15 +132,15 @@ summary(bats1$season)
 
  
 ## Subset for different myotis and brown long-eared (dissolve behavior)
-myot <- bats1 %>% filter(manual.id == "MYOT") %>% select(-behavior) %>% droplevels()
+myot <- bats1 %>% filter(manual.id == "MYOT") %>% select(-behavior) %>% droplevels() %>% distinct()
 dim(myot)
 summary(myot)
-#24447    33
+#16161    33
 
-plau <- bats1 %>% filter(manual.id == "PAUR") %>% select(-behavior) %>% droplevels()
+plau <- bats1 %>% filter(manual.id == "PAUR") %>% select(-behavior) %>% droplevels() %>% distinct()
 dim(plau)
 summary(plau)
-#24447    33
+#9407   33
 
 bats.map <- bats1 %>% select(SitePlotYear, Site, SitePlot, PlotType, s.PC1,
                              year, season, night, jnight, jnight.f, 
@@ -143,6 +152,7 @@ MY <- myot %>% group_by(SitePlotYear, night) %>% dplyr::summarise(batpass = sum(
 summary(MY)
 
 mydf <- left_join(MY, bats.map) %>% mutate(taxa = "Myotis species") 
+sum(mydf$batpass) # 74633
 sum(mydf$batpass == 0) / nrow(mydf)*100 
 # 33.40287
 summary(mydf)
@@ -151,34 +161,42 @@ summary(mydf)
 PL <- plau %>% group_by(SitePlotYear, night) %>% dplyr::summarise(batpass = sum(batpass)) 
 summary(PL)
 
+
 pldf <- left_join(PL, bats.map) %>% mutate(taxa = "Plecotus auritus") 
+sum(pldf$batpass) # 2340
 sum(pldf$batpass == 0) / nrow(pldf)*100 
 # 85.75285
 summary(pldf)
 
-#### Myotis behaviro models 
+#### Myotis behavior data subsets for models 
 
 ## Subset for different myotis behaviors  
-myot <- bats1 %>% filter(manual.id == "MYOT") %>% droplevels()
+myot <- bats1 %>% filter(manual.id == "MYOT") %>% droplevels() %>% distinct()
 dim(myot)
-#24447    38
+#24447    34
 sum(myot$batpass == 0) / nrow(myot)*100 
 # 65.93856 zero observations
 
-myot.c <- bats1 %>% filter(manual.id == "MYOT", behavior == "Commuting") %>% droplevels()
+myot.c <- bats1 %>% filter(manual.id == "MYOT", behavior == "Commuting") %>% droplevels() %>% distinct()
 dim(myot.c)
-# 8149   38
+# 8149   34
+sum(myot.c$batpass) # 61006
 sum(myot.c$batpass == 0) / nrow(myot.c)*100 
 # 34.5 % zero observations 
 
-myot.f <- bats1 %>% filter(manual.id == "MYOT", behavior == "Feeding") %>% droplevels()
+myot.f <- bats1 %>% filter(manual.id == "MYOT", behavior == "Feeding") %>% droplevels() %>% distinct()
 dim(myot.f)
 # 8149   38
+sum(myot.f$batpass) # 13775
 sum(myot.f$batpass == 0) / nrow(myot.f)*100 
 # 65.16137 zero observations
 # 
 dates <- c(124, 150, 160, 171, 194, 206, 218, 236, 263)
 
+dim(pldf)
+# 8149   14
+dim(mydf)
+# 8149   14
 ```
 
 
@@ -224,13 +242,16 @@ MY4b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + 
 
 #' Who is the best so far?
 AIC(MY1, MY2, MY3, MY3b, MY4, MY4b)
-# MY1  23 132258.45
-# MY2  24 112103.47
-# MY3  24  43877.12
-# MY3b 25  43838.62 ** Best 
-# MY4  24  44184.88
-# MY4b 16  44716.53
+# MY1  23 132301.39
+# MY2  24 112325.01
+# MY3  24  43702.74
+# MY3b 25  43668.78 * Best 
+# MY4  24  43998.66
+# MY4b 16  44536.75
 beep()
+
+tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
+          show.stat = TRUE, transform = NULL)
 
 tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
           show.stat = TRUE, transform = NULL, file = file.path(output_today, "MyotisTotal_M3b_summary.doc"))
@@ -317,7 +338,7 @@ dim(newdata.m)
 # summary(M3b)
 # getwd()
 
-#predictions.m <- predict(MY3b, type = "response", newdata = newdata.m, se.fit = TRUE)
+predictions.m <- predict(MY3b, type = "response", newdata = newdata.m, se.fit = TRUE)
 beep()
 
 # Extract predicted values and standard errors
@@ -424,14 +445,17 @@ PL4b <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + y
 #' Who is the best so far?
 AIC(PL1, PL2, PL3, PL3b, PL4, PL4b)
 #      df      AIC
-# PL1  23 9532.982
-# PL2  24 8769.886
-# PL3  24 8499.100
-# PL3b 25 8477.854
-# PL4  24 8351.116 *Best
-# PL4b 25 8353.116
-
+# PL1  23 9387.129
+# PL2  24 8688.301
+# PL3  24 8411.060
+# PL3b 25 8399.784
+# PL4  24 8249.345 *Best
+# PL4b 25 8251.345
+beep()
 summary(PL4)
+
+tab_model(PL4, show.est = TRUE, show.se = TRUE, 
+          show.stat = TRUE, transform = NULL)
 
 tab_model(PL4, show.est = TRUE, show.se = TRUE, 
           show.stat = TRUE, transform = NULL, file = file.path(output_today, "PlecotusTotal_PL4_summary.doc"))
@@ -439,12 +463,6 @@ tab_model(PL4, show.est = TRUE, show.se = TRUE,
 ```
 
 
-"The marginal (no random effects) and conditional (with random effects) can be estimated by predicting the responses for the fixed-only (marginal) and full (conditional) models, correlating to the response data points, and squaring.
-
-Nakagawa, S., and Schielzeth, H. (2013). A general and simple method for obtaining R2 from generalized linear mixed-effects models. Methods in Ecology and Evolution, 4(2), 133–142. doi:10.1111/j.2041-210x.2012.00261.x
-
-Nakagawa, S., Johnson, P. C. D., and Schielzeth, H. (2017). The coefficient of determination R2 and intra-class correlation coefficient from generalized linear mixed-effects models revisited and expanded. Journal of The Royal Society Interface, 14(134), 20170213. doi:10.1098/rsif.2017.0213"
-https://stats.stackexchange.com/questions/586777/model-fit-r2-for-glmmtmb
 
 ## Model validation 
 ```{r}
@@ -589,7 +607,6 @@ summary(myot.c)
 M1c <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
               family = "poisson",
               data = myot.c)
-summary(M1c)
 
 #
 # #' This is the ZIP GLMM.
@@ -597,16 +614,12 @@ M2c <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + ye
               family = "poisson",
               ziformula = ~1,
               data = myot.c)
-summary(M2c)
 
 #' This is the GP GLMM:
 M3c <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
               family = "genpois",
               ziformula = ~0,
               data = myot.c)
-#
- summary(M3c)
-
 
  
 M3cb <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
@@ -614,27 +627,24 @@ M3cb <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + y
               ziformula = ~1,         
               data = myot.c)
 
-summary(M3cb)
-
 
 # #' This is the NB GLMM:
 M4c <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
               family = "nbinom2",
               ziformula = ~0,
               data = myot.c)
-summary(M4c)
 
 
 M4cb <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
               family = "nbinom2",
               ziformula = ~1,
               data = myot.c)
-summary(M4cb)
 
 
 #' Who is the best so far?
 AIC(M1c, M2c, M3c, M3cb, M4c, M4cb)
-#    df       AIC
+
+#    df  p)     AIC
 # M1c  23 107272.51
 # M2c  24  91188.46
 # M3c  24  41677.00
@@ -850,6 +860,11 @@ beep()
 # M4fb 25 21411.27
 
 tab_model(M3f, show.est = TRUE, show.se = TRUE, 
+          show.stat = TRUE, transform = NULL)
+
+summary(M3f)
+
+tab_model(M3f, show.est = TRUE, show.se = TRUE, 
           show.stat = TRUE, transform = NULL, file = file.path(output_today, "MyotisFeeding_M3f_summary.doc"))
 
 ```
@@ -951,7 +966,7 @@ newdataf$lower <- newdataf$predicted-(2*newdataf$se)
 dim(newdataf)
 # 48600    12
 
-# write.csv(newdataf, file = file.path(output_today, "PredictionsDataFrame_MyotisFeeding_M3f_9nights.csv"))
+write.csv(newdataf, file = file.path(output_today, "PredictionsDataFrame_MyotisFeeding_M3f_9nights.csv"))
 
 #newdata1 <- #IMPORT HERE
 
@@ -985,7 +1000,7 @@ pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
   
   # Customize the theme for a cleaner look
   theme_minimal() +
-  theme(legend.position = "none",
+  theme(legend.position = "bottom",
         text = element_text(size = 15),
         plot.title = element_text(face = "bold")) +
  
@@ -997,8 +1012,13 @@ pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
   scale_fill_manual(name = "Habitat", values = plot.cols)
 pred.f
 
+## Now just export this to get the legend 
+ggsave(path = output_today, filename = "legendplot.tiff", width = 10, height = 8, device='tiff', dpi=300) 
+
 windows()
-cowplot::plot_grid(pred.m, pred.p, pred.c, pred.f, nrow = 2, ncol = 2, labels = c("a.", "b.", "c.", "d."))
+SREpred <- cowplot::plot_grid(pred.m, pred.p, pred.c, pred.f, nrow = 2, ncol = 2, labels = c("a.", "b.", "c.", "d."))  
+
+ggsave(path = output_today, filename = "SREmodelPreds.tiff", width = 10, height = 8, device='tiff', dpi=300) 
 
 ```
 
@@ -1057,6 +1077,8 @@ general<- ggplot(bats1 %>%
 general
 
 summary(bats1$day_length)
+
+ggsave(path = output_today, filename = "DaylengthSREbats.tiff", width = 10, height = 8, device='tiff', dpi=300) 
 
 ```
 

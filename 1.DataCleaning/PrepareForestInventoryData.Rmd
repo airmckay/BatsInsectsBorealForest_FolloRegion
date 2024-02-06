@@ -375,9 +375,16 @@ biplot(trait.pca)
 screeplot(trait.pca) 
 # how much of each axis describes the variation in the data 
 # PC1 Explains most of the variation. Big difference between PC2 and PC3. 
-summary(trait.pca)
 pca.summary <- summary(trait.pca)
 ## In our case, 'species' are the different LiDAR variables and sites are the different bat locations. 
+
+pca.summary$cont
+# Importance of components:
+#                          PC1    PC2    PC3    PC4    PC5    PC6     PC7
+# Eigenvalue            2.7834 1.1845 0.8729 0.8081 0.7570 0.4032 0.19097
+# Proportion Explained  0.3976 0.1692 0.1247 0.1154 0.1081 0.0576 0.02728
+# Cumulative Proportion 0.3976 0.5668 0.6915 0.8070 0.9151 0.9727 1.00000
+
 meta <- forests1.5 %>% select(SitePlotYear, year, PlotType) %>% distinct() 
 
 trait.loadings <- as.data.frame(pca.summary$species) %>% 
@@ -442,31 +449,8 @@ pca.ggplot <- ggplot() +
   theme(legend.position = "none") 
 
 pca.ggplot
+ggsave(path = output_today, filename = "ForestPCA.tiff", width = 10, height = 10, device='tiff', dpi=300) 
 
-
-# PC1 and PC2 - normal 
-# pca.ggplot <- ggplot() +
-#   geom_point(
-#     data = sp.scores, 
-#     aes(x = PC1, y = PC2, color = PlotType), 
-#     size = 3, alpha = 0.7) +
-#   scale_color_manual(values = plot.cols) +
-#   stat_ellipse(data = sp.scores, 
-#     aes(x = PC1, y = PC2, 
-#         color = PlotType, fill = PlotType),
-#     geom = "polygon", 
-#     size = 1, alpha = 0.2,  type = "norm") +
-#     scale_fill_manual(values = plot.cols) +
-#   geom_segment(data = trait.loadings, 
-#                aes(x = 0, xend = PC1/2, y = 0, yend = PC2/2), lwd = 0.1) + 
-#   geom_text(
-#     data = trait.loadings, 
-#     aes(x = PC1/2, y = PC2/2+0.1, label = trait), 
-#     size = 3) + 
-#   theme_bw() +
-#   theme(legend.position = "none") 
-# 
-# pca.ggplot
 
 ## Table of PCA for further informing variable selection 
 traittable <- trait.loadings  %>% 
@@ -559,8 +543,12 @@ BasalArea <- ggplot(
 BasalArea
 
 
-plot_grid(VegCoverRank, CountBushes, CountSmallTrees, CountSnags,
+forestplots <- cowplot::plot_grid(VegCoverRank, CountBushes, CountSmallTrees, CountSnags,
           SumTrees, RelascopeSumAvg, BasalArea, ncol = 2) + theme(text = element_text(size=20))
+
+forestplots
+
+ggsave(path = output_today, filename = "Forest_wPC1.tiff", width = 8, height = 12, device='tiff', dpi=300)
 
 ```
 
