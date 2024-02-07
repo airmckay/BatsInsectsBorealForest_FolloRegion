@@ -214,6 +214,10 @@ bugs2021 <- left_join(bugs21.1, effort21)
 names(bugs2021)
 dim(bugs2021)
 # 17046
+
+summary(bugs2021) 
+
+
 names(bugs2022)
 dim(bugs2022)
 # 4755
@@ -222,6 +226,8 @@ bugs <- full_join(bugs2022, bugs2021)
 dim(bugs)
 # 21801    11
 # 4755 + 17046 = 21801, good!
+
+
 
 
 #write.csv(bugs, file = file.path(output_today, "OCT_imageannotations_withmeta_combined.csv"))

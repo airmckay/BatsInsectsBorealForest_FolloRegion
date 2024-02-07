@@ -63,10 +63,11 @@ I show my workflow but have made it possible to skip to the point where you impo
 ## Import 2021 data
 ################################################################################
 
-# 
-# bats21 <-  read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/Extraction FF21_AllFiles_troubleshooting_columns_included_SitePlot.csv", col_types = cols(...1 = col_skip()))
-# # 484303 obs of 58 variables
-# 
+# # 
+# bats21 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/AutoBatForManualAnalysis/Extraction FF21_AllFiles_troubleshooting_columns_included_SitePlot.csv", 
+#      col_types = cols(...1 = col_skip()))
+# # # 484303 obs of 58 variables
+# # 
 # # remove some redundant columns, identify the main auto id column
 # b21_df <- bats21 %>% dplyr::select(-c(
 #   INDIR1, INDIR2, INDIR3, INDIR4,
@@ -82,16 +83,16 @@ I show my workflow but have made it possible to skip to the point where you impo
 #   str_detect(SitePlot, "-CB") ~ "Canopy",
 #   str_detect(SitePlot, "-IB") ~ "Interior")) %>% mutate(Plot = factor(Plot))
 # 
-
-
-################################################################################
-## Import 2022 data
-################################################################################
 # 
 # 
-# bats22 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/2022_AutomaticallyProcessed_BatAcousticData_allsitescombined_unedited.csv")
-# # 494268 obs
-# 
+# ################################################################################
+# ## Import 2022 data
+# ################################################################################
+# # 
+# # 
+# bats22 <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/AutoBatForManualAnalysis/2022_AutomaticallyProcessed_BatAcousticData_allsitescombined_unedited.csv")
+# # # 494268 obs
+# # 
 # # Create a SitePlot column and format the other columns
 # bats22$INDIR1 <- gsub("\\", "/", bats22$INDIR, fixed = TRUE)
 # head(bats22$INDIR1)
@@ -115,7 +116,7 @@ I show my workflow but have made it possible to skip to the point where you impo
 # b22_df1 <- b22_inventory1 %>% select(-DATA) %>% mutate(Site = factor(Site),
 #                                                        SitePlot = factor(SitePlot),
 #                                                        Collection = factor(Collection))
-# 
+# # 
 # summary(b22_df1)
 # 
 # ## Add a row index column
@@ -141,6 +142,13 @@ I show my workflow but have made it possible to skip to the point where you impo
 # summary(b22_df2$Site)
 # summary(b22_df2$SitePlot)
 # summary(b22_df2$Plot)
+# 
+# ## How many were SRE bats? and how much of this was nosie? 
+# 
+# sre22 <- b22_df2 %>% filter(autoid %in% 
+#                               c("MYOALC", "MYOBEC", "MYOBRA", "MYODAS",
+#                                 "MYODAU", "MYOMYO", "MYOMYS", "MYONAT",
+#                                 "BARBAR", "PLEAUR", "PLEAUS")) #  
 # 
 # 
 # ### Remove noise and merge the datasets
@@ -233,7 +241,7 @@ I show my workflow but have made it possible to skip to the point where you impo
 #write.csv(FF, file = file.path(output_today, "Simple_AllBatData.CSV") )
 # # 12.10.2023 
 
-FF <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/Simple_AllBatData.CSV",
+FF <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/1.DataCleaning/AutoBatForManualAnalysis/Simple_AllBatData.CSV",
      col_types = cols(...1 = col_skip())) ## Noise files already removed 
 dim(FF)
 # [1] 416936     17
@@ -277,6 +285,16 @@ summary(FF$autoid)
 #   7662 113862   2469  11792  66006   5448 
 # PLEAUS VESMUR 
 #   1928    304
+
+## How much of this was SRE? 
+
+sre <- FF %>% filter(autoid %in% 
+                              c("MYOALC", "MYOBEC", "MYOBRA", "MYODAS",
+                                "MYODAU", "MYOMYO", "MYOMYS", "MYONAT",
+                                "BARBAR", "PLEAUR", "PLEAUS")) %>% 
+  filter(Plot == "Open") %>% droplevels()
+
+## 39,983 bat passes in open habitat. 
 
 ## Quick and easy summary tables 
 # kbl(summarize( FF, type = "factor", variables = "siteplotyear", 

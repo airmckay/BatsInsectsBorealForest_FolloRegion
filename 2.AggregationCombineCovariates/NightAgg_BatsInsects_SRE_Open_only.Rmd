@@ -157,6 +157,42 @@ output_today
 # 35 NAs on nights when there were insect photos but no bat acoustic monitoring happening. 
 # 01.02.2024
 
+summary(sre_se1)
+
+## What is the number of detector nights per detector?
+
+det <- sre_se1 %>% group_by(SitePlotYear, year, night) %>% mutate(fnight = factor(night)) %>%  dplyr::summarise(batpass = sum(batpass)) %>% distinct()
+summary(det) 
+
+det1 <- as.data.frame(det) %>% dplyr::mutate(fnight = factor(night))
+
+det2 <- det1 %>% group_by(SitePlotYear, year) %>% dplyr::summarise(n.night = n()) 
+
+summary(det2$n.night)
+   # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   # 74.0   108.5   115.0   117.5   137.0   140.0 
+
+sd(det2$n.night)
+# 21.35601
+
+det21 <- det2 %>% filter(year == "2021") %>% droplevels()
+
+summary(det21$n.night)
+  #  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  # 74.00   99.25  109.50  102.42  110.50  123.00 
+
+sd(det21$n.night)
+# 17.05317
+
+
+det22 <- det2 %>% filter(year == "2022") %>% droplevels()
+
+summary(det22$n.night)
+   # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   #  103     137     137     134     138     140 
+
+sd(det22$n.night)
+# 10.53565
 
 ```
 
