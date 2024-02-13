@@ -228,7 +228,16 @@ dim(bugs)
 # 4755 + 17046 = 21801, good!
 
 
+summary(bugs)
+bugs$year <- factor(year(bugs$night))
 
+b21 <- bugs %>% filter(year == "2021") %>% droplevels()
+sum(b21$nPhotos)
+# 941,434
+
+b22 <- bugs %>% filter(year == "2022") %>% droplevels()
+sum(b22$nPhotos)
+#
 
 #write.csv(bugs, file = file.path(output_today, "OCT_imageannotations_withmeta_combined.csv"))
 
