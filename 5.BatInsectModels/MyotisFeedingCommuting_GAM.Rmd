@@ -562,23 +562,34 @@ range.pred.c <- range(pred.c$pred_values) #[1]   0.03091761 206.79674714
 # Create a 3D surface plot with rgl
 with(pred.c, {
   plot3d(CanOpen, II, matrix(pred_values, ncol = length(unique(pred.c$II))),
-         col = terrain.colors(100), type = "h", size = 0.5, 
-         xlab = "canopy openness", ylab = "insect abundance", zlab = "batpass",
-         main = "")
+         col = terrain.colors(100), type = "h", size = .5, 
+         xlab = "Canopy openness", ylab = "Insect index", zlab = "Commuting passes per night",
+         main = "",
+         cex = 3,
+         cex.main = 3, 
+         cex.lab = 3) 
   rgl.postscript("3d_plot_commuting.eps", fmt = "eps")
-})
+}) 
 
 #Prediction plot for Feeding
 # Create a 3D surface plot with rgl
+InsectIndex = seq(min(pred.f$II), max(pred.f$II), length.out = 15) 
+CanOpen = unique(pred.f$CanOpen)
+
 with(pred.f, {
   plot3d(CanOpen, II, matrix(pred_values, ncol = length(unique(pred.f$II))),
-         col = terrain.colors(100), type = "h", size = 0.5, 
-         xlab = "canopy openness", ylab = "insect abundance", zlab = "batpass",
-         main = "")
+         col = terrain.colors(100), type = "h", size = .5, 
+         xlab = "Canopy openness", ylab = "Insect index", zlab = "Feeding passes per night",
+         main = "",
+         cex = 3,
+         cex.main = 3, 
+         cex.lab = 3) 
   rgl.postscript("3d_plot_feeding.eps", fmt = "eps")
-})
+}) 
 
 
+
+### Tally - you can also make this into points by changing to type = "p"
 
 ### Now with plot_ly 
 
@@ -641,3 +652,7 @@ plot_ly(x = ~CanOpen, y = ~InsectIndex, z = z, type = "surface") %>%
 
 ```
 
+
+## Tally 
+
+The predictions I am plotting with plot_ly do not quite match up with the raw data or the model predictions made using the rgl package. I am pretty sure it has to do with how I define the predicted values in plot_ly (the "z" value) as a matrix but not sure if there are other settings in the plot that I should be adjusting. Would be very curious to hear your thoughts on this. 
