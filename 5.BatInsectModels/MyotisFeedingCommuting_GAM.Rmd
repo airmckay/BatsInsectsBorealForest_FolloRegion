@@ -144,118 +144,7 @@ df <- DF
 #Replace 4 observations with values greater than 2 in InsectIndexCertain with 2
 df$InsectIndex[df$InsectIndex > 2] <- 2 
 
-plot(1:nrow(df), df$InsectIndex, 
-     pch = 16, col = "blue", 
-     main = "Distribution of InsectIndex",
-     xlab = "Data Point", ylab = "InsectIndex")
 
-# Add a horizontal line at the mean
-abline(h = mean(df$InsectIndex), col = "red", lty = 2)
-
-
-##############LOOK AT THE CanOpen variable too
-plot(1:nrow(df), df$CanOpen, 
-     pch = 16, cex = 0.3, col = "darkgreen", 
-     main = "Distribution of CanOpen",
-     xlab = "Data Point", ylab = "CanOpen")
-
-# Add a horizontal line at the mean
-abline(h = mean(df$CanOpen), col = "red", lty = 2)
-
-
-##############LOOK AT THE batpass DATA
-# Count the number of rows where batpass is 0
-num_zeros <- sum(df$batpass == 0)
-
-# Calculate the total number of rows in the dataframe
-total_rows <- nrow(df)
-
-# Calculate the percentage of rows with value 0 for batpass
-percent_zeros <- (num_zeros / total_rows)*100
-
-# Print the result
-cat("Percent of rows with value 0 for batpass:", percent_zeros, "/n")
-#Percent of rows with value 0 for batpass: 58.85287 
-#That is a lot  - will most likely need a zero-inflated model
-
-# distribution of values
-plot(1:nrow(df), df$batpass, 
-     pch = 16, col = "blue", 
-     main = "Distribution of batpass",
-     xlab = "Data Point", ylab = "batpass")
-
-# Add a horizontal line at the mean
-abline(h = mean(df$batpass), col = "red", lty = 2)
-abline(h = 20, col = "red", lty = 1)
-abline(h = 30, col = "green", lty = 1)
-
-
-#Will have to keep an eye one the outliers, but first check if some SitePlotYear
-#have very few observations
-
-
-#How many observations per SitePlotYear
-# Create a frequency table for year
-frequency_table <- table(df$SitePlotYear)
-
-# Print the frequency table
-print(frequency_table)
-
-# Levels to exclude: < 10 observation nights per SitePlotYear
-excluded_levels <- c('FF03-OB-2021', 'FF03-OB-2022', 'FF05-OB-2022', 'FF06-OB-2022', 'FF08-OB-2022', 'FF11-OB-2021')
-
-# Creating a subset excluding specified levels
-df_subset <- df[!(df$SitePlotYear %in% excluded_levels), ]
-
-# Dropping excluded levels completely
-df_subset$SitePlotYear <- droplevels(df_subset$SitePlotYear, exclude = excluded_levels)
-
-# Create a frequency table for year
-frequency_table <- table(df_subset$SitePlotYear)
-
-# Print the frequency table
-print(frequency_table)
-
-dim(df) #401 rows
-dim(df_subset) #364 rows
-
-plot(1:nrow(df_subset), df_subset$batpass, 
-     pch = 16, col = "blue", 
-     main = "subset SitePlotYear with min 10 observ nights",
-     xlab = "Data Point", ylab = "batpass")
-
-# Add a horizontal line at the mean
-abline(h = mean(df_subset$batpass), col = "red", lty = 2)
-abline(h = 30, col = "red", lty = 1)
-
-
-#distribution of CanOpen variable for the subsetted data
-
-plot(1:nrow(df_subset), df_subset$CanOpen, 
-     pch = 16, cex = 0.3, col = "darkgreen", 
-     main = "Distribution of CanOpen",
-     xlab = "Data Point", ylab = "CanOpen")
-
-# Add a horizontal line at the mean
-abline(h = mean(df_subset$CanOpen), col = "red", lty = 2)
-
-
-
-#Not use this - but just for visual exploration
-df_subset20 <- df_subset
-
-#Replace x observations with values greater than 20 for batpass with 20
-df_subset20$batpass[df_subset20$batpass > 20] <- 20 
-
-#look at subsetted batpass data with max value 20
-par(mfrow = c(1, 1))
-plot(1:nrow(df_subset20), df_subset20$batpass, 
-     pch = 16, col = "blue", 
-     main = "subset SitePlotYear with min 10 observ nights, max value 20",
-     xlab = "Data Point", ylab = "batpass")
-
-# Add a horizontal line at the mean
-abline(h = mean(df_subset20$batpass), col = "red", lty = 2)
 ```
 
 
@@ -263,7 +152,7 @@ abline(h = mean(df_subset20$batpass), col = "red", lty = 2)
 "#F57969"
 ```{r}
 summary(DF)
-summary(df)
+summary(df) # InsecIndex converted to all values over 2 are 2 
 
 ## arrange sites according to increasing PC1 
 df1 <- df %>% 
