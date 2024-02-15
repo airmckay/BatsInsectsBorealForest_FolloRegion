@@ -160,7 +160,7 @@ df1 <- df %>%
            dplyr::select(c(SitePlotYear, SiteYear, year, Site, CanOpen)) %>%
   arrange(year, CanOpen) 
 
-sites <- df1 %>% select(SiteYear) %>% distinct()
+sites <- df1 %>% dplyr::select(SiteYear) %>% distinct()
 neworder <- sites$SiteYear
 df$SiteYear1 <- factor(df$SiteYear, levels = neworder)
 
@@ -215,8 +215,8 @@ cowplot::plot_grid(bb, ii, nrow = 2, labels = c("a.", "b."))
 
 ## Fit a GAM - feeding activity subset 
 ```{r}
-#I did run GAMMs with df_subset20 (not included in this R script) but df_subset also provided a good fit to the data
-#So we will use the df_subset without pruning values >20 to 20
+## Remove sites with less than 10 observations 
+dfs <- df %>% dplyr::filter(!SitePlotYear %in% c('FF03-OB-2021', 'FF03-OB-2022', 'FF05-OB-2022', 'FF06-OB-2022', 'FF08-OB-2022', 'FF11-OB-2021')) %>% droplevels() 
 
 summary(dfs)
 m1nb <- gam(batpass ~ s(InsectIndex) + year + s(Site, bs = "re"), metod="REML",family= "nb()",  data = dfs)
