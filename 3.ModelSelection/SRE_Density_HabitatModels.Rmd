@@ -132,17 +132,17 @@ summary(bats1$season)
 
  
 ## Subset for different myotis and brown long-eared (dissolve behavior)
-myot <- bats1 %>% filter(manual.id == "MYOT") %>% select(-behavior) %>% droplevels() %>% distinct()
+myot <- bats1 %>% filter(manual.id == "MYOT") %>% dplyr::select(-behavior) %>% droplevels() %>% distinct()
 dim(myot)
 summary(myot)
 #16161    33
 
-plau <- bats1 %>% filter(manual.id == "PAUR") %>% select(-behavior) %>% droplevels() %>% distinct()
+plau <- bats1 %>% filter(manual.id == "PAUR") %>% dplyr::select(-behavior) %>% droplevels() %>% distinct()
 dim(plau)
 summary(plau)
 #9407   33
 
-bats.map <- bats1 %>% select(SitePlotYear, Site, SitePlot, PlotType, s.PC1,
+bats.map <- bats1 %>% dplyr::select(SitePlotYear, Site, SitePlot, PlotType, s.PC1,
                              year, season, night, jnight, jnight.f, 
                              s.temperature, s.rainfall) %>% distinct()
 # 8149 of 12 
@@ -359,6 +359,29 @@ tail(newdata.m)
 
 #write.csv(newdata.m, file = file.path(output_today, "PredictionsDataFrame_AllMyotis_M3B_9nights.csv"))
 
+
+### Now adjust so that you have a dataset where PC1 values are outside the sub-habitat ranges
+
+myOB <- mydf %>% filter(PlotType == "Open") %>% droplevels
+summary(myOB$s.PC1)
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# -0.6997  0.3574  0.9611  0.7640  1.1265  1.9511 
+## Range = -0.6997 - 1.9511
+
+myIB <- mydf %>% filter(PlotType == "Interior") %>% droplevels
+summary(myIB$s.PC1)
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+# -2.92499 -0.61295 -0.49881 -0.44561  0.05632  0.60446 
+
+myCB <- mydf %>% filter(PlotType == "Canopy") %>% droplevels
+summary(myCB$s.PC1)
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+# -2.73814 -0.75569  0.09113 -0.31163  0.42900  0.88423 
+
+range(newdata.m$s.PC1)
+# -2.93  1.95
+
+
 # Plot the predicted values 
 
 # Set the colors for each level
@@ -371,7 +394,6 @@ names(seas.labs) <- c("Early", "Medium", "Late")
 pred.m <- ggplot(newdata.m, aes(x = s.PC1, y = predicted,
                      group = PlotType, color = PlotType, 
                      fill = PlotType)) +
-  
   # Add average line for each combination of PlotType and Season
   stat_summary(fun = "mean",  
                geom = "line", linewidth = 1) + 
@@ -380,24 +402,87 @@ pred.m <- ggplot(newdata.m, aes(x = s.PC1, y = predicted,
   # Set the color and fill scale based on PlotType
   scale_color_manual(values = plot.cols) +
   scale_fill_manual(values = plot.cols) +
-  
   # Facet the plot by Season
   facet_wrap(~season, scales = "fixed", ncol = 3,
              labeller = labeller(season = seas.labs)) +
-  
   # Customize the theme for a cleaner look
   theme_minimal() +
   theme(legend.position = "none",
         text = element_text(size = 15),
         plot.title = element_text(face = "bold")) +
- 
   # Change legend title
-  labs(x = "Habitat openness", y = "Bat passes per night", 
+  labs(x = "", y = "Bat passes per night", 
        title = expression(paste(italic("Myotis "), "total activity"))) +
   scale_color_manual(name = "Habitat", values = plot.cols) +
   scale_fill_manual(name = "Habitat", values = plot.cols) 
 pred.m
 
+
+newer.m.ob <- newdata.m %>% 
+  dplyr::filter(PlotType == "Open" & s.PC1 < -0.6997) %>% droplevels()
+dim(newer.m.ob)
+ # 7128      12
+
+test <- newdata.m %>% dplyr::filter(PlotType == "Interior") 
+range(test$s.PC1)
+
+newer.m.ib <- newdata.m %>% 
+  dplyr::filter(PlotType == "Interior" & s.PC1 > 0.60446) %>% 
+  droplevels()
+dim(newer.m.ib)
+ # 4536    12
+
+# -2.93  1.95
+newer.m.cb <- newdata.m %>% 
+  dplyr::filter(PlotType == "Canopy") %>% 
+  droplevels() %>% 
+  dplyr::mutate(PlotType1 = 
+                   factor(case_when(
+  s.PC1 < -2.73814 ~ "Canopy1", 
+  s.PC1 > 0.88423 ~ "Canopy2",
+  .default = "Nope"))) %>% 
+  dplyr::filter(PlotType1 != "Nope") %>% 
+  dplyr::select(-PlotType) %>% 
+  rename(PlotType = PlotType1) %>% 
+  droplevels()
+summary(newer.m.cb)
+dim(newer.m.cb)
+# 4536       12
+
+
+temp1 <- full_join(newer.m.ob, newer.m.ib)
+   # 7128 + 4536 = 11664 # good 
+temp2 <- full_join(temp1, newer.m.cb)
+   # 11664 + 4536  = 16200
+
+newer.m <- temp2
+summary(newer.m)
+
+pred.m.gray <- ggplot(newer.m, 
+                     aes(x = s.PC1, y = predicted,
+                     group = PlotType)) +
+  # Add average line for each combination of PlotType and Season
+  stat_summary(fun = "mean",  
+               geom = "line", linewidth = 1, 
+               color = "black",
+               alpha = 0.85) + 
+  stat_summary(fun.data = "mean_cl_normal", 
+               geom = "ribbon", 
+               fill = "gray",
+               alpha = 0.85) + 
+  # Facet the plot by Season
+  facet_wrap(~season, scales = "fixed", ncol = 3,
+             labeller = labeller(season = seas.labs)) +
+  # Customize the theme for a cleaner look
+  theme_minimal() +
+  theme(legend.position = "none",
+        text = element_text(size = 15),
+        plot.title = element_text(face = "bold")) +
+  # Change legend title
+  labs(x = "", y = "Bat passes per night", 
+       title = expression(paste(italic("Myotis "), "total activity"))) 
+pred.m.gray
+  
 ```
 
 
@@ -584,8 +669,8 @@ pred.p <- ggplot(newdata.p, aes(x = s.PC1, y = predicted,
         plot.title = element_text(face = "bold")) +
  
   # Change legend title
-  labs(x = "Habitat openness", y = "Bat passes per night", 
-       title = expression(paste(italic("Plecotus auritus "), "activity"))) +
+  labs(x = "", y = "", 
+       title = expression(paste(italic("P. auritus "), "total activity"))) +
   scale_color_manual(name = "Habitat", values = plot.cols) +
   scale_fill_manual(name = "Habitat", values = plot.cols) 
 pred.p
@@ -595,6 +680,103 @@ cowplot::plot_grid(pred.p, pred.m, nrow = 2)
 
 summary(newdata.m)
 summary(newdata.p)
+
+
+
+### Now adjust so that you have a dataset where PC1 values are outside the sub-habitat ranges
+
+plOB <- pldf %>% filter(PlotType == "Open") %>% droplevels
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# -0.6997  0.3574  0.9611  0.7640  1.1265  1.9511 
+## Range = -0.6997 - 1.9511
+
+plIB <- pldf %>% filter(PlotType == "Interior") %>% droplevels
+summary(plIB$s.PC1)
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+# -2.92499 -0.61295 -0.49881 -0.44561  0.05632  0.60446 
+
+plCB <- pldf %>% filter(PlotType == "Canopy") %>% droplevels
+summary(plCB$s.PC1)
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+# -2.73814 -0.75569  0.09113 -0.31163  0.42900  0.88423 
+
+range(newdata.m$s.PC1)
+# -2.93  1.95
+
+
+newer.p.ob <- newdata.p %>% 
+  dplyr::filter(PlotType == "Open" & s.PC1 < -0.6997) %>% droplevels()
+dim(newer.p.ob)
+ # 7128      12
+
+test <- newdata.p %>% dplyr::filter(PlotType == "Interior") 
+range(test$s.PC1)
+
+newer.p.ib <- newdata.p %>% 
+  dplyr::filter(PlotType == "Interior" & s.PC1 > 0.60446) %>% 
+  droplevels()
+dim(newer.m.ib)
+ # 4536    12
+
+# -2.93  1.95
+newer.p.cb <- newdata.p %>% 
+  dplyr::filter(PlotType == "Canopy") %>% 
+  droplevels() %>% 
+  dplyr::mutate(PlotType1 = 
+                   factor(case_when(
+  s.PC1 < -2.73814 ~ "Canopy1", 
+  s.PC1 > 0.88423 ~ "Canopy2",
+  .default = "Nope"))) %>% 
+  dplyr::filter(PlotType1 != "Nope") %>% 
+  dplyr::select(-PlotType) %>% 
+  rename(PlotType = PlotType1) %>% 
+  droplevels()
+summary(newer.p.cb)
+dim(newer.p.cb)
+# 4536       12
+
+
+temp1 <- full_join(newer.p.ob, newer.p.ib)
+   # 7128 + 4536 = 11664 # good 
+temp2 <- full_join(temp1, newer.p.cb)
+   # 11664 + 4536  = 16200
+
+newer.p <- temp2
+summary(newer.p)
+
+pred.p.gray <- ggplot(newer.p, 
+                     aes(x = s.PC1, y = predicted,
+                     group = PlotType)) +
+  # Add average line for each combination of PlotType and Season
+  stat_summary(fun = "mean",  
+               geom = "line", linewidth = 1, 
+               color = "black",
+               alpha = 0.85) + 
+  stat_summary(fun.data = "mean_cl_normal", 
+               geom = "ribbon", 
+               fill = "gray",
+               alpha = 0.85) + 
+  # Facet the plot by Season
+  facet_wrap(~season, scales = "fixed", ncol = 3,
+             labeller = labeller(season = seas.labs)) +
+  # Customize the theme for a cleaner look
+  theme_minimal() +
+  theme(legend.position = "none",
+        text = element_text(size = 15),
+        plot.title = element_text(face = "bold")) +
+  # Change legend title
+  labs(x = "", y = "Bat passes per night", 
+       title = expression(paste(italic("P.auritus "), "total activity"))) 
+pred.p.gray
+
+cowplot::plot_grid(pred.m.gray, pred.p.gray)
+ggsave(path = output_today, filename = "test.gray.tiff", width = 12, height = 8, device='tiff', dpi=300) 
+
+cowplot::plot_grid(pred.m, pred.p)
+ggsave(path = output_today, filename = "test.tiff", width = 12, height = 8, device='tiff', dpi=300) 
+
+
+## Did not work the way I had hoped it would 
 ```
 
 
@@ -757,7 +939,6 @@ dim(newdatac)
 #write.csv(newdatac, file = file.path(output_today, "PredictionsDataFrame_MyotisCommuting_M3cb_9nights.csv"))
 
 #newdata1 <- #IMPORT HERE
-
 head(newdatac)
 tail(newdatac) 
 
@@ -966,7 +1147,7 @@ newdataf$lower <- newdataf$predicted-(2*newdataf$se)
 dim(newdataf)
 # 48600    12
 
-write.csv(newdataf, file = file.path(output_today, "PredictionsDataFrame_MyotisFeeding_M3f_9nights.csv"))
+# write.csv(newdataf, file = file.path(output_today, "PredictionsDataFrame_MyotisFeeding_M3f_9nights.csv"))
 
 #newdata1 <- #IMPORT HERE
 
@@ -1000,12 +1181,12 @@ pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
   
   # Customize the theme for a cleaner look
   theme_minimal() +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         text = element_text(size = 15),
         plot.title = element_text(face = "bold")) +
  
   # Change legend title
-  labs(x = "Habitat openness", y = "Bat passes per night", 
+  labs(x = "Habitat openness", y = "", 
        title = 
          expression(paste(italic("Myotis "), "feeding activity"))) +
   scale_color_manual(name = "Habitat", values = plot.cols) +
@@ -1013,12 +1194,13 @@ pred.f <- ggplot(newdataf, aes(x = s.PC1, y = predicted,
 pred.f
 
 ## Now just export this to get the legend 
-ggsave(path = output_today, filename = "legendplot.tiff", width = 10, height = 8, device='tiff', dpi=300) 
+# ggsave(path = output_today, filename = "legendplot.tiff", width = 10, height = 8, device='tiff', dpi=300) 
 
 windows()
 SREpred <- cowplot::plot_grid(pred.m, pred.p, pred.c, pred.f, nrow = 2, ncol = 2, labels = c("a.", "b.", "c.", "d."))  
+SREpred
 
-ggsave(path = output_today, filename = "SREmodelPreds.tiff", width = 10, height = 8, device='tiff', dpi=300) 
+ggsave(path = output_today, filename = "SREmodelPreds.tiff", width = 12, height = 8, device='tiff', dpi=600) 
 
 ```
 
