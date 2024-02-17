@@ -186,20 +186,22 @@ plotgg1 <- ggplot(data=sites.long1,
     ylab("NMDS2") +  
     geom_point(aes(shape=PlotType), 
                size=3) +
-  theme_minimal() + 
-  theme(text = element_text(size = 15)) + 
+  theme_classic() + 
+  theme(text = element_text(size = 25)) + 
   scale_color_manual(values = plot.cols) +
   theme(legend.position = "bottom") + 
   theme(legend.title=element_blank())
   
 
 plotgg2 <- plotgg1 + 
-  stat_ellipse(type = "norm", geom = "polygon", alpha = 0.4) +
+  stat_ellipse(type = "norm", geom = "polygon", alpha = 0.2) +
   coord_fixed() + 
   scale_fill_manual(values = plot.cols) 
 
 plotgg2
 
+#output_today
+ggsave(path = output_today, filename = "NMDS.tiff", width = 10, height = 10, device='tiff', dpi=300) 
 # Plot with site variation 
 
 ## arrange sites according to increasing PC1 
@@ -223,33 +225,66 @@ batpc3$SitePlot1 <- factor(batpc3$SitePlot, levels = neworder)
 levels(batpc3$SitePlot1)
 
 sites <- ggplot(batpc3) + 
-  geom_col(aes(x = SitePlot1, y = batpass, fill = PlotType), position = "stack") +
-  facet_wrap(~year, nrow = 2) + 
-  theme_minimal() + 
-  theme(legend.position = "bottom") +
-  theme(text=element_text(size=10)) + 
+  geom_col(aes(x = SitePlot1, y = batpass, fill = PlotType, alpha = year), 
+           position = "dodge") +
+  facet_wrap(~PlotType,  scales = "free_x") + 
+  theme(strip.text.x = element_text(size = 20)) + 
+  theme_classic() + 
+  theme(legend.position = "none") +
+  theme(text=element_text(size=15)) + 
   scale_fill_manual(name = "Habitat", values = plot.cols) + 
-  xlab("") + ylab("") + 
-  scale_x_discrete(labels=c("FF07-OB" = "07", "FF07-IB" = "07", "FF07-CB" = "07",
-                            "FF04-OB" = "04", "FF04-IB" = "04", "FF04-CB" = "04",
-                            "FF05-OB" = "05", "FF05-IB" = "05", "FF05-CB" = "05",
-                            "FF02-OB" = "02", "FF02-IB" = "02", "FF02-CB" = "02",
-                            "FF08-OB" = "08", "FF08-IB" = "08", "FF08-CB" = "08",
-                            "FF11-OB" = "11", "FF11-IB" = "11", "FF11-CB" = "11",
-                            "FF01-OB" = "01", "FF01-IB" = "01", "FF01-CB" = "01",
-                            "FF03-OB" = "03", "FF03-IB" = "03", "FF03-CB" = "03",
-                            "FF12-OB" = "12", "FF12-IB" = "12", "FF12-CB" = "12",
-                            "FF06-OB" = "06", "FF06-IB" = "06", "FF06-CB" = "06",
-                            "FF09-OB" = "09", "FF09-IB" = "09", "FF09-CB" = "09",
-                            "FF10-OB" = "10", "FF10-IB" = "10", "FF10-CB" = "10")) +
-  coord_flip() 
+  scale_alpha_discrete(range = c(1, 0.8)) + 
+  xlab("Sites") + ylab("Total bat passes") + 
+  scale_x_discrete(labels=c(
+    "FF07-OB" = "S-07", "FF07-IB" = "S-07", "FF07-CB" = "S-07",
+    "FF04-OB" = "S-04", "FF04-IB" = "S-04", "FF04-CB" = "S-04",
+    "FF05-OB" = "S-05", "FF05-IB" = "S-05", "FF05-CB" = "S-05",
+    "FF02-OB" = "S-02", "FF02-IB" = "S-02", "FF02-CB" = "S-02",
+    "FF08-OB" = "S-08", "FF08-IB" = "S-08", "FF08-CB" = "S-08",
+    "FF11-OB" = "S-11", "FF11-IB" = "S-11", "FF11-CB" = "S-11",
+    "FF01-OB" = "S-01", "FF01-IB" = "S-01", "FF01-CB" = "S-01",
+    "FF03-OB" = "S-03", "FF03-IB" = "S-03", "FF03-CB" = "S-03",
+    "FF12-OB" = "S-12", "FF12-IB" = "S-12", "FF12-CB" = "S-12",
+    "FF06-OB" = "S-06", "FF06-IB" = "S-06", "FF06-CB" = "S-06",
+    "FF09-OB" = "S-09", "FF09-IB" = "S-09", "FF09-CB" = "S-09",
+    "FF10-OB" = "S-10", "FF10-IB" = "S-10", "FF10-CB" = "S-10")) 
 sites
+ggsave(path = output_today, filename = "CommunitySites.tiff", width = 20, height = 10, device='tiff', dpi=300) 
+# 2022 = dark
+# 2021 = light
+
+
+## Tally also requested a behavior bar plot
+
+bats1$taxa <- bats1$manual.id
+bats1$taxa <- gsub("MYOT", "Myotis", bats1$taxa)
+bats1$taxa <- gsub("PAUR", "P.auritus", bats1$taxa)
+bats1$taxa <- factor(bats1$taxa)
+
+behavplot <- ggplot(data = bats1 %>%
+                     filter(guild == "SRE") %>% 
+                     filter(batpass > 0) %>% 
+                      droplevels()) + 
+  aes(x = PlotType, fill = behavior, by = PlotType) +
+  geom_bar(position = "fill", stat = "prop") + 
+  scale_fill_manual(values = c ("#121722", "#3E4F73", "#C5DCF1")) + 
+  theme_classic() + 
+  facet_wrap(~taxa) +
+  theme(strip.text.x = element_text(
+        size = 20, face = "italic")) + 
+  theme(legend.title=element_blank(),
+        text=element_text(size=25),
+        legend.position = "bottom") +
+  ylab("") + xlab("")
+
+behavplot
+ggsave(path = output_today, filename = "BehaviorFigure.tiff", width = 10, height = 12, device='tiff', dpi=300) 
 
 
 ## Figure 4
-cowplot::plot_grid(plotgg2, sites, nrow = 1, labels = c("a.", "b."), label_x = 0.1, label_y = 0.1)
+cowplot::plot_grid(plotgg2, behavplot, nrow = 1, labels = c("", ""))
 
-ggsave(path = output_today, filename = "CommunityFigure.tiff", width = 10, height = 8, device='tiff', dpi=300) 
+ggsave(path = output_today, filename = "NMDS_BehavFigure.tiff", width = 25, height = 27, device='tiff', dpi=300) 
 
 ```
 

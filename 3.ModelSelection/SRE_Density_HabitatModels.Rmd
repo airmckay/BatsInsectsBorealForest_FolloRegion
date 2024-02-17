@@ -258,8 +258,6 @@ tab_model(MY3b, show.est = TRUE, show.se = TRUE,
 
 ```
 
-
-
 ## Model validation 
 ```{r}
 # #* Model validation using DHARMa for the GP GLM model----
@@ -357,6 +355,7 @@ dim(newdata.m)
 head(newdata.m)
 tail(newdata.m) 
 
+## Tally - import data here 
 #write.csv(newdata.m, file = file.path(output_today, "PredictionsDataFrame_AllMyotis_M3B_9nights.csv"))
 
 
@@ -486,7 +485,6 @@ pred.m.gray
 ```
 
 
-
 ### Brown long-eared bats 
 ```{r}
 summary(pldf)
@@ -546,8 +544,6 @@ tab_model(PL4, show.est = TRUE, show.se = TRUE,
           show.stat = TRUE, transform = NULL, file = file.path(output_today, "PlecotusTotal_PL4_summary.doc"))
 
 ```
-
-
 
 ## Model validation 
 ```{r}
@@ -634,6 +630,8 @@ dim(newdata.p)
 head(newdata.p)
 tail(newdata.p) 
 
+
+## Tally - import data here 
 # write.csv(newdata.p, file = file.path(output_today, "PredictionsDataFrame_AllPlecotus_PL4_9nights.csv"))
 
 # Plot the predicted values 
@@ -894,8 +892,9 @@ testZeroInflation(M3cb)
 
 
 
-## Plot predictions 
 
+
+## Plot predictions 
 ```{r}
 #Predict for all nights
 
@@ -936,6 +935,8 @@ newdatac$upper <-  newdatac$predicted + (2*newdatac$se)
 newdatac$lower <- newdatac$predicted-(2*newdatac$se)
 dim(newdatac)
 # 48600    12
+
+## Tally - import data here 
 #write.csv(newdatac, file = file.path(output_today, "PredictionsDataFrame_MyotisCommuting_M3cb_9nights.csv"))
 
 #newdata1 <- #IMPORT HERE
@@ -1147,6 +1148,7 @@ newdataf$lower <- newdataf$predicted-(2*newdataf$se)
 dim(newdataf)
 # 48600    12
 
+## Tally - import data here 
 # write.csv(newdataf, file = file.path(output_today, "PredictionsDataFrame_MyotisFeeding_M3f_9nights.csv"))
 
 #newdata1 <- #IMPORT HERE
@@ -1229,24 +1231,15 @@ coeff <- 1.2
 #                             name ="Bat passes per night")) 
 # general
 
+mydf1 <- bats1 %>%filter(batpass>0) %>% 
+                  filter(manual.id == "MYOT") %>% droplevels()
+pldf1 <- bats1 %>%filter(batpass>0) %>% 
+                  filter(manual.id == "PAUR") %>% droplevels()
 
 coeff <- 0.25
-general<- ggplot(bats1 %>%
-                   filter(batpass>0) %>% 
-                  filter(guild == "SRE") %>% droplevels()) + 
-  geom_area(aes(x=jnight, y = day_length), fill = "#f0e2a8") +
-  geom_smooth(aes(x  = jnight, y = batpass), 
-              alpha = 0.5, color = "#3E4F73", fill = "#C5DCF1") + 
-  theme_minimal() + 
-  theme(text=element_text(size=15)) + 
-  xlab("Julian night") + 
-  ggtitle("") +
-  theme(legend.position = "bottom") +
-  scale_y_continuous(name = "Day length (hours)",
-                     sec.axis = 
-                       sec_axis(~.*1, 
-                            name ="Bat passes per night")) +
-  geom_vline(xintercept = 172, linetype="longdash", 
+general<- ggplot () + 
+    geom_area(data = bats1, aes(x=jnight, y = day_length), fill = "#f0e2a8") +
+    geom_vline(xintercept = 172, linetype="longdash", 
                 color = "#cc8400", linewidth=1.5) +
   geom_vline(xintercept = 124, linetype="dotted", 
                 color = "#ffb732", linewidth=1.5) +
@@ -1255,7 +1248,21 @@ general<- ggplot(bats1 %>%
   geom_vline(xintercept = 217, linetype="dotted", 
                 color = "#ffb732", linewidth=1.5) +
   geom_vline(xintercept = 263, linetype="dotted", 
-                color = "#ffb732", linewidth=1.5)
+                color = "#ffb732", linewidth=1.5) +
+  geom_smooth(data = mydf1, aes(x  = jnight, y = batpass), 
+              alpha = 0.5, color = "#3E4F73", fill = "#C5DCF1") + 
+  geom_smooth(data = pldf1, aes(x  = jnight, y = batpass), 
+              alpha = 0.5, color = "#C5DCF1", fill = "#3E4F73") + 
+  theme_minimal() + 
+  theme(text=element_text(size=15)) + 
+  xlab("Julian night") + 
+    scale_y_continuous(name = "Bat passes per night",
+                     sec.axis = 
+                       sec_axis(~.*1, 
+                            name ="Day length (hours)")) +
+  ggtitle("") +
+  theme(legend.position = "bottom") 
+
 general
 
 summary(bats1$day_length)
