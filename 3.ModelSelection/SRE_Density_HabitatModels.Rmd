@@ -203,7 +203,6 @@ dim(mydf)
 
 ## Myotis species - Model selection 
 ```{r}
-
 #' Apply the Poisson GLMM.
 MY1 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
               family = "poisson",
@@ -309,7 +308,7 @@ testZeroInflation(MY3b)
 
 ```
 
-## Plot predictions - Myotis 
+## Plot predictions - Myotis total 
 ```{r}
 #Predict for all nights
 summary(mydf)
@@ -416,74 +415,8 @@ pred.m <- ggplot(newdata.m, aes(x = s.PC1, y = predicted,
   scale_fill_manual(name = "Habitat", values = plot.cols) 
 pred.m
 
-
-newer.m.ob <- newdata.m %>% 
-  dplyr::filter(PlotType == "Open" & s.PC1 < -0.6997) %>% droplevels()
-dim(newer.m.ob)
- # 7128      12
-
-test <- newdata.m %>% dplyr::filter(PlotType == "Interior") 
-range(test$s.PC1)
-
-newer.m.ib <- newdata.m %>% 
-  dplyr::filter(PlotType == "Interior" & s.PC1 > 0.60446) %>% 
-  droplevels()
-dim(newer.m.ib)
- # 4536    12
-
-# -2.93  1.95
-newer.m.cb <- newdata.m %>% 
-  dplyr::filter(PlotType == "Canopy") %>% 
-  droplevels() %>% 
-  dplyr::mutate(PlotType1 = 
-                   factor(case_when(
-  s.PC1 < -2.73814 ~ "Canopy1", 
-  s.PC1 > 0.88423 ~ "Canopy2",
-  .default = "Nope"))) %>% 
-  dplyr::filter(PlotType1 != "Nope") %>% 
-  dplyr::select(-PlotType) %>% 
-  rename(PlotType = PlotType1) %>% 
-  droplevels()
-summary(newer.m.cb)
-dim(newer.m.cb)
-# 4536       12
-
-
-temp1 <- full_join(newer.m.ob, newer.m.ib)
-   # 7128 + 4536 = 11664 # good 
-temp2 <- full_join(temp1, newer.m.cb)
-   # 11664 + 4536  = 16200
-
-newer.m <- temp2
-summary(newer.m)
-
-pred.m.gray <- ggplot(newer.m, 
-                     aes(x = s.PC1, y = predicted,
-                     group = PlotType)) +
-  # Add average line for each combination of PlotType and Season
-  stat_summary(fun = "mean",  
-               geom = "line", linewidth = 1, 
-               color = "black",
-               alpha = 0.85) + 
-  stat_summary(fun.data = "mean_cl_normal", 
-               geom = "ribbon", 
-               fill = "gray",
-               alpha = 0.85) + 
-  # Facet the plot by Season
-  facet_wrap(~season, scales = "fixed", ncol = 3,
-             labeller = labeller(season = seas.labs)) +
-  # Customize the theme for a cleaner look
-  theme_minimal() +
-  theme(legend.position = "none",
-        text = element_text(size = 15),
-        plot.title = element_text(face = "bold")) +
-  # Change legend title
-  labs(x = "", y = "Bat passes per night", 
-       title = expression(paste(italic("Myotis "), "total activity"))) 
-pred.m.gray
   
 ```
-
 
 ### Brown long-eared bats 
 ```{r}
@@ -631,7 +564,6 @@ head(newdata.p)
 tail(newdata.p) 
 
 
-## Tally - import data here 
 # write.csv(newdata.p, file = file.path(output_today, "PredictionsDataFrame_AllPlecotus_PL4_9nights.csv"))
 
 # Plot the predicted values 
@@ -679,102 +611,6 @@ cowplot::plot_grid(pred.p, pred.m, nrow = 2)
 summary(newdata.m)
 summary(newdata.p)
 
-
-
-### Now adjust so that you have a dataset where PC1 values are outside the sub-habitat ranges
-
-plOB <- pldf %>% filter(PlotType == "Open") %>% droplevels
-#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# -0.6997  0.3574  0.9611  0.7640  1.1265  1.9511 
-## Range = -0.6997 - 1.9511
-
-plIB <- pldf %>% filter(PlotType == "Interior") %>% droplevels
-summary(plIB$s.PC1)
-#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
-# -2.92499 -0.61295 -0.49881 -0.44561  0.05632  0.60446 
-
-plCB <- pldf %>% filter(PlotType == "Canopy") %>% droplevels
-summary(plCB$s.PC1)
-#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
-# -2.73814 -0.75569  0.09113 -0.31163  0.42900  0.88423 
-
-range(newdata.m$s.PC1)
-# -2.93  1.95
-
-
-newer.p.ob <- newdata.p %>% 
-  dplyr::filter(PlotType == "Open" & s.PC1 < -0.6997) %>% droplevels()
-dim(newer.p.ob)
- # 7128      12
-
-test <- newdata.p %>% dplyr::filter(PlotType == "Interior") 
-range(test$s.PC1)
-
-newer.p.ib <- newdata.p %>% 
-  dplyr::filter(PlotType == "Interior" & s.PC1 > 0.60446) %>% 
-  droplevels()
-dim(newer.m.ib)
- # 4536    12
-
-# -2.93  1.95
-newer.p.cb <- newdata.p %>% 
-  dplyr::filter(PlotType == "Canopy") %>% 
-  droplevels() %>% 
-  dplyr::mutate(PlotType1 = 
-                   factor(case_when(
-  s.PC1 < -2.73814 ~ "Canopy1", 
-  s.PC1 > 0.88423 ~ "Canopy2",
-  .default = "Nope"))) %>% 
-  dplyr::filter(PlotType1 != "Nope") %>% 
-  dplyr::select(-PlotType) %>% 
-  rename(PlotType = PlotType1) %>% 
-  droplevels()
-summary(newer.p.cb)
-dim(newer.p.cb)
-# 4536       12
-
-
-temp1 <- full_join(newer.p.ob, newer.p.ib)
-   # 7128 + 4536 = 11664 # good 
-temp2 <- full_join(temp1, newer.p.cb)
-   # 11664 + 4536  = 16200
-
-newer.p <- temp2
-summary(newer.p)
-
-pred.p.gray <- ggplot(newer.p, 
-                     aes(x = s.PC1, y = predicted,
-                     group = PlotType)) +
-  # Add average line for each combination of PlotType and Season
-  stat_summary(fun = "mean",  
-               geom = "line", linewidth = 1, 
-               color = "black",
-               alpha = 0.85) + 
-  stat_summary(fun.data = "mean_cl_normal", 
-               geom = "ribbon", 
-               fill = "gray",
-               alpha = 0.85) + 
-  # Facet the plot by Season
-  facet_wrap(~season, scales = "fixed", ncol = 3,
-             labeller = labeller(season = seas.labs)) +
-  # Customize the theme for a cleaner look
-  theme_minimal() +
-  theme(legend.position = "none",
-        text = element_text(size = 15),
-        plot.title = element_text(face = "bold")) +
-  # Change legend title
-  labs(x = "", y = "Bat passes per night", 
-       title = expression(paste(italic("P.auritus "), "total activity"))) 
-pred.p.gray
-
-cowplot::plot_grid(pred.m.gray, pred.p.gray)
-ggsave(path = output_today, filename = "test.gray.tiff", width = 12, height = 8, device='tiff', dpi=300) 
-
-cowplot::plot_grid(pred.m, pred.p)
-ggsave(path = output_today, filename = "test.tiff", width = 12, height = 8, device='tiff', dpi=300) 
-
-
-## Did not work the way I had hoped it would 
 ```
 
 
@@ -1105,8 +941,6 @@ summary(M3f)
 
 ```
 
-
-
 ## Plot predictions 
 ```{r}
 #Predict for all jnights 
@@ -1205,6 +1039,576 @@ SREpred
 ggsave(path = output_today, filename = "SREmodelPreds.tiff", width = 12, height = 8, device='tiff', dpi=600) 
 
 ```
+
+
+### Plot predictions for all 4 models and visualize where values are outside of the range for each plot
+```{r}
+## Import the 4 model prediction sets 
+
+newdatam <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Inputs/PredictionsDataFrame_AllMyotis_M3B_9nights.csv", 
+ col_types = cols(...1 = col_skip()))
+# 48600 obs of 12 vars 
+
+newdatap <-  read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Inputs/PredictionsDataFrame_AllPlecotus_PL4_9nights.csv", 
+ col_types = cols(...1 = col_skip()))
+# 48600 obs of 12 vars 
+
+newdatac <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Inputs/PredictionsDataFrame_MyotisCommuting_M3cb_9nights.csv", 
+ col_types = cols(...1 = col_skip()))
+# 48600 obs of 12 vars 
+
+newdataf <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/3.ModelSelection/SRE_Density_HabitatModels/Inputs/PredictionsDataFrame_MyotisFeeding_M3f_9nights.csv", 
+ col_types = cols(...1 = col_skip()))
+# 48600 obs of 12 vars 
+
+## For plotting facet labels 
+seas.labs <- c("Season:Early", "Season:Mid", "Season:Late")
+names(seas.labs) <- c("Early", "Medium", "Late")
+
+
+################################################################################
+################################################################################
+### Myotis total activity predictions
+# Subset to columns we are actually interested in for ease
+newdatam_sub <-subset(newdatam, select = c("s.PC1", "season", "PlotType","predicted"))
+myot_sub   <-subset(mydf, select = c("s.PC1", "season", "PlotType"))
+
+#### Find the ranges we want to predict within for each grouping ####
+# Canopy
+myot_sub_can_early <-myot_sub[myot_sub$season== "Early" & myot_sub$PlotType== "Canopy",  ]
+can_early_max <-max(myot_sub_can_early$s.PC1)
+can_early_min <-min(myot_sub_can_early$s.PC1)
+
+myot_sub_can_late <-myot_sub[myot_sub$season== "Late" & myot_sub$PlotType== "Canopy",  ]
+can_late_max <-max(myot_sub_can_late$s.PC1)
+can_late_min <-min(myot_sub_can_late$s.PC1)
+
+myot_sub_can_mid <-myot_sub[myot_sub$season== "Medium" & myot_sub$PlotType== "Canopy",  ]
+can_mid_max <-max(myot_sub_can_mid$s.PC1)
+can_mid_min <-min(myot_sub_can_mid$s.PC1)
+
+# Interior
+myot_sub_int_early <-myot_sub[myot_sub$season== "Early" & myot_sub$PlotType== "Interior",  ]
+int_early_max <-max(myot_sub_int_early$s.PC1)
+int_early_min <-min(myot_sub_int_early$s.PC1)
+
+myot_sub_int_late <-myot_sub[myot_sub$season== "Late" & myot_sub$PlotType== "Interior",  ]
+int_late_max <-max(myot_sub_int_late$s.PC1)
+int_late_min <-min(myot_sub_int_late$s.PC1)
+
+myot_sub_int_mid <-myot_sub[myot_sub$season== "Medium" & myot_sub$PlotType== "Interior",  ]
+int_mid_max <-max(myot_sub_int_mid$s.PC1)
+int_mid_min <-min(myot_sub_int_mid$s.PC1)
+
+# Open
+myot_sub_open_early <-myot_sub[myot_sub$season== "Early" & myot_sub$PlotType== "Open",  ]
+open_early_max <-max(myot_sub_open_early$s.PC1)
+open_early_min <-min(myot_sub_open_early$s.PC1)
+
+myot_sub_open_late <-myot_sub[myot_sub$season== "Late" & myot_sub$PlotType== "Open",  ]
+open_late_max <-max(myot_sub_open_late$s.PC1)
+open_late_min <-min(myot_sub_open_late$s.PC1)
+
+myot_sub_open_mid <-myot_sub[myot_sub$season== "Medium" & myot_sub$PlotType== "Open",  ]
+open_mid_max <-max(myot_sub_open_mid$s.PC1)
+open_mid_min <-min(myot_sub_open_mid$s.PC1)
+
+
+#### Crop the predictions to these ranges ####
+# canopy
+newdatam_can_early <-newdatam_sub[newdatam_sub$season== "Early" & newdatam_sub$PlotType== "Canopy" &
+                                  newdatam_sub$s.PC1 >= can_early_min & newdatam_sub$s.PC1 <= can_early_max ,  ]
+
+newdatam_can_late <-newdatam_sub[newdatam_sub$season== "Late" & newdatam_sub$PlotType== "Canopy" &
+                                    newdatam_sub$s.PC1 >= can_late_min & newdatam_sub$s.PC1 <= can_late_max ,  ]
+
+newdatam_can_mid <-newdatam_sub[newdatam_sub$season== "Medium" & newdatam_sub$PlotType== "Canopy" &
+                                   newdatam_sub$s.PC1 >= can_mid_min & newdatam_sub$s.PC1 <= can_mid_max ,  ]
+
+# interior
+newdatam_int_early <-newdatam_sub[newdatam_sub$season== "Early" & newdatam_sub$PlotType== "Interior" &
+                                    newdatam_sub$s.PC1 >= int_early_min & newdatam_sub$s.PC1 <= int_early_max ,  ]
+
+newdatam_int_late <-newdatam_sub[newdatam_sub$season== "Late" & newdatam_sub$PlotType== "Interior" &
+                                   newdatam_sub$s.PC1 >= int_late_min & newdatam_sub$s.PC1 <= int_late_max ,  ]
+
+newdatam_int_mid <-newdatam_sub[newdatam_sub$season== "Medium" & newdatam_sub$PlotType== "Interior" &
+                                  newdatam_sub$s.PC1 >= int_mid_min & newdatam_sub$s.PC1 <= int_mid_max ,  ]
+
+# open
+newdatam_open_early <-newdatam_sub[newdatam_sub$season== "Early" & newdatam_sub$PlotType== "Open" &
+                                    newdatam_sub$s.PC1 >= open_early_min & newdatam_sub$s.PC1 <= open_early_max ,  ]
+
+newdatam_open_late <-newdatam_sub[newdatam_sub$season== "Late" & newdatam_sub$PlotType== "Open" &
+                                   newdatam_sub$s.PC1 >= open_late_min & newdatam_sub$s.PC1 <= open_late_max ,  ]
+
+newdatam_open_mid <-newdatam_sub[newdatam_sub$season== "Medium" & newdatam_sub$PlotType== "Open" &
+                                  newdatam_sub$s.PC1 >= open_mid_min & newdatam_sub$s.PC1 <= open_mid_max ,  ]
+
+#### recombine prediction dataframes ####
+test <-rbind(newdatam_can_early, newdatam_can_late, newdatam_can_mid,
+             newdatam_int_early, newdatam_int_late, newdatam_int_mid,
+             newdatam_open_early,newdatam_open_late, newdatam_open_mid )
+
+# Reorder factor levels for plotting
+test$season   <- factor(test$season, levels = c("Early", "Medium", "Late"))
+test$PlotType <- factor(test$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+newdatam_sub$season   <- factor(newdatam_sub$season, levels = c("Early", "Medium", "Late"))
+newdatam_sub$PlotType <- factor(newdatam_sub$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+
+#### plot ####
+# initial plot is for the original predictions
+(p<-ggplot(newdatam_sub, aes(x = s.PC1, y = predicted,
+                             group = PlotType, color = PlotType, fill = PlotType)) +
+   
+   # Add average line for each combination of PlotType and Season
+   stat_summary(fun = "mean",  
+                geom = "line", linewidth = 1, linetype =2) + 
+   stat_summary(fun.data = "mean_cl_normal", 
+                geom = "ribbon", alpha = 0.1) + 
+   # Set the color and fill scale based on PlotType
+   scale_color_manual(values = plot.cols) +
+   scale_fill_manual(values = plot.cols) +
+   
+   # Facet the plot by Season
+   facet_wrap(~season, scales = "fixed", ncol = 3, 
+              labeller = labeller(season = seas.labs))  +
+   
+   # Customize the theme for a cleaner look
+   theme_minimal() +
+   theme(legend.position = "none",
+         text = element_text(size = 15),
+         plot.title = element_text(face = "bold")) +
+   
+   # Change legend title
+   labs(x = "", y = "Bat passes per night", 
+        title =  expression(paste(italic("Myotis "), "total activity"))) +
+   scale_color_manual(name = "Habitat", values = plot.cols) +
+   scale_fill_manual(name = "Habitat", values = plot.cols) +
+   xlim(-3, 2)
+)
+
+# Now readd the predictions within range as an overlay
+(predm<-p + 
+    stat_summary(data = test, fun = "mean",  
+                 geom = "line", linewidth = 1, linetype = 1, alpha=0.9) + 
+    stat_summary(data = test, fun.data = "mean_cl_normal", 
+                 geom = "ribbon", alpha = 0.75) )
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+### Myotis total activity predictions
+# Subset to columns we are actually interested in for ease
+newdatap_sub <-subset(newdatap, select = c("s.PC1", "season", "PlotType","predicted"))
+plau_sub   <-subset(pldf, select = c("s.PC1", "season", "PlotType"))
+
+#### Find the ranges we want to predict within for each grouping ####
+# Canopy
+plau_sub_can_early <-plau_sub[plau_sub$season== "Early" & plau_sub$PlotType== "Canopy",  ]
+can_early_max <-max(plau_sub_can_early$s.PC1)
+can_early_min <-min(plau_sub_can_early$s.PC1)
+
+plau_sub_can_late <-plau_sub[plau_sub$season== "Late" & plau_sub$PlotType== "Canopy",  ]
+can_late_max <-max(plau_sub_can_late$s.PC1)
+can_late_min <-min(plau_sub_can_late$s.PC1)
+
+plau_sub_can_mid <-plau_sub[plau_sub$season== "Medium" & plau_sub$PlotType== "Canopy",  ]
+can_mid_max <-max(plau_sub_can_mid$s.PC1)
+can_mid_min <-min(plau_sub_can_mid$s.PC1)
+
+# Interior
+plau_sub_int_early <-plau_sub[plau_sub$season== "Early" & plau_sub$PlotType== "Interior",  ]
+int_early_max <-max(plau_sub_int_early$s.PC1)
+int_early_min <-min(plau_sub_int_early$s.PC1)
+
+plau_sub_int_late <-plau_sub[plau_sub$season== "Late" & plau_sub$PlotType== "Interior",  ]
+int_late_max <-max(plau_sub_int_late$s.PC1)
+int_late_min <-min(plau_sub_int_late$s.PC1)
+
+plau_sub_int_mid <-plau_sub[plau_sub$season== "Medium" & plau_sub$PlotType== "Interior",  ]
+int_mid_max <-max(plau_sub_int_mid$s.PC1)
+int_mid_min <-min(plau_sub_int_mid$s.PC1)
+
+# Open
+plau_sub_open_early <-plau_sub[plau_sub$season== "Early" & plau_sub$PlotType== "Open",  ]
+open_early_max <-max(plau_sub_open_early$s.PC1)
+open_early_min <-min(plau_sub_open_early$s.PC1)
+
+plau_sub_open_late <-plau_sub[plau_sub$season== "Late" & plau_sub$PlotType== "Open",  ]
+open_late_max <-max(plau_sub_open_late$s.PC1)
+open_late_min <-min(plau_sub_open_late$s.PC1)
+
+plau_sub_open_mid <-plau_sub[plau_sub$season== "Medium" & plau_sub$PlotType== "Open",  ]
+open_mid_max <-max(plau_sub_open_mid$s.PC1)
+open_mid_min <-min(plau_sub_open_mid$s.PC1)
+
+
+#### Crop the predictions to these ranges ####
+# canopy
+newdatap_can_early <-newdatap_sub[newdatap_sub$season== "Early" & newdatap_sub$PlotType== "Canopy" &
+                                  newdatap_sub$s.PC1 >= can_early_min & newdatap_sub$s.PC1 <= can_early_max ,  ]
+
+newdatap_can_late <-newdatap_sub[newdatap_sub$season== "Late" & newdatap_sub$PlotType== "Canopy" &
+                                    newdatap_sub$s.PC1 >= can_late_min & newdatap_sub$s.PC1 <= can_late_max ,  ]
+
+newdatap_can_mid <-newdatap_sub[newdatap_sub$season== "Medium" & newdatap_sub$PlotType== "Canopy" &
+                                   newdatap_sub$s.PC1 >= can_mid_min & newdatap_sub$s.PC1 <= can_mid_max ,  ]
+
+# interior
+newdatap_int_early <-newdatap_sub[newdatap_sub$season== "Early" & newdatap_sub$PlotType== "Interior" &
+                                    newdatap_sub$s.PC1 >= int_early_min & newdatap_sub$s.PC1 <= int_early_max ,  ]
+
+newdatap_int_late <-newdatap_sub[newdatap_sub$season== "Late" & newdatap_sub$PlotType== "Interior" &
+                                   newdatap_sub$s.PC1 >= int_late_min & newdatap_sub$s.PC1 <= int_late_max ,  ]
+
+newdatap_int_mid <-newdatap_sub[newdatap_sub$season== "Medium" & newdatap_sub$PlotType== "Interior" &
+                                  newdatap_sub$s.PC1 >= int_mid_min & newdatap_sub$s.PC1 <= int_mid_max ,  ]
+
+# open
+newdatap_open_early <-newdatap_sub[newdatap_sub$season== "Early" & newdatap_sub$PlotType== "Open" &
+                                    newdatap_sub$s.PC1 >= open_early_min & newdatap_sub$s.PC1 <= open_early_max ,  ]
+
+newdatap_open_late <-newdatap_sub[newdatap_sub$season== "Late" & newdatap_sub$PlotType== "Open" &
+                                   newdatap_sub$s.PC1 >= open_late_min & newdatap_sub$s.PC1 <= open_late_max ,  ]
+
+newdatap_open_mid <-newdatap_sub[newdatap_sub$season== "Medium" & newdatap_sub$PlotType== "Open" &
+                                  newdatap_sub$s.PC1 >= open_mid_min & newdatap_sub$s.PC1 <= open_mid_max ,  ]
+
+#### recombine prediction dataframes ####
+test <-rbind(newdatap_can_early, newdatap_can_late, newdatap_can_mid,
+             newdatap_int_early, newdatap_int_late, newdatap_int_mid,
+             newdatap_open_early,newdatap_open_late, newdatap_open_mid )
+
+# Reorder factor levels for plotting
+test$season   <- factor(test$season, levels = c("Early", "Medium", "Late"))
+test$PlotType <- factor(test$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+newdatap_sub$season   <- factor(newdatap_sub$season, levels = c("Early", "Medium", "Late"))
+newdatap_sub$PlotType <- factor(newdatap_sub$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+
+#### plot ####
+# initial plot is for the original predictions
+(p<-ggplot(newdatap_sub, aes(x = s.PC1, y = predicted,
+                             group = PlotType, color = PlotType, fill = PlotType)) +
+   
+   # Add average line for each combination of PlotType and Season
+   stat_summary(fun = "mean",  
+                geom = "line", linewidth = 1, linetype =2) + 
+   stat_summary(fun.data = "mean_cl_normal", 
+                geom = "ribbon", alpha = 0.1) + 
+   # Set the color and fill scale based on PlotType
+   scale_color_manual(values = plot.cols) +
+   scale_fill_manual(values = plot.cols) +
+   
+   # Facet the plot by Season
+   facet_wrap(~season, scales = "fixed", ncol = 3, 
+              labeller = labeller(season = seas.labs))  +
+   
+   # Customize the theme for a cleaner look
+   theme_minimal() +
+   theme(legend.position = "none",
+         text = element_text(size = 15),
+         plot.title = element_text(face = "bold")) +
+   
+   # Change legend title
+   labs(x = "", y = "", 
+        title =  expression(paste(italic("P. auritus "), "total activity"))) +
+   scale_color_manual(name = "Habitat", values = plot.cols) +
+   scale_fill_manual(name = "Habitat", values = plot.cols) +
+   xlim(-3, 2)
+)
+
+# Now readd the predictions within range as an overlay
+(predp<-p + 
+    stat_summary(data = test, fun = "mean",  
+                 geom = "line", linewidth = 1, linetype = 1, alpha=0.9) + 
+    stat_summary(data = test, fun.data = "mean_cl_normal", 
+                 geom = "ribbon", alpha = 0.75) )
+
+
+
+################################################################################
+
+
+### Myotis feeding activity predictions
+# Subset to columns we are actually interested in for ease
+newdataf_sub <-subset(newdataf, select = c("s.PC1", "season", "PlotType","predicted"))
+myot.f_sub   <-subset(myot.f, select = c("s.PC1", "season", "PlotType"))
+
+#### Find the ranges we want to predict within for each grouping ####
+# Canopy
+myot.f_sub_can_early <-myot.f_sub[myot.f_sub$season== "Early" & myot.f_sub$PlotType== "Canopy",  ]
+can_early_max <-max(myot.f_sub_can_early$s.PC1)
+can_early_min <-min(myot.f_sub_can_early$s.PC1)
+
+myot.f_sub_can_late <-myot.f_sub[myot.f_sub$season== "Late" & myot.f_sub$PlotType== "Canopy",  ]
+can_late_max <-max(myot.f_sub_can_late$s.PC1)
+can_late_min <-min(myot.f_sub_can_late$s.PC1)
+
+myot.f_sub_can_mid <-myot.f_sub[myot.f_sub$season== "Medium" & myot.f_sub$PlotType== "Canopy",  ]
+can_mid_max <-max(myot.f_sub_can_mid$s.PC1)
+can_mid_min <-min(myot.f_sub_can_mid$s.PC1)
+
+# Interior
+myot.f_sub_int_early <-myot.f_sub[myot.f_sub$season== "Early" & myot.f_sub$PlotType== "Interior",  ]
+int_early_max <-max(myot.f_sub_int_early$s.PC1)
+int_early_min <-min(myot.f_sub_int_early$s.PC1)
+
+myot.f_sub_int_late <-myot.f_sub[myot.f_sub$season== "Late" & myot.f_sub$PlotType== "Interior",  ]
+int_late_max <-max(myot.f_sub_int_late$s.PC1)
+int_late_min <-min(myot.f_sub_int_late$s.PC1)
+
+myot.f_sub_int_mid <-myot.f_sub[myot.f_sub$season== "Medium" & myot.f_sub$PlotType== "Interior",  ]
+int_mid_max <-max(myot.f_sub_int_mid$s.PC1)
+int_mid_min <-min(myot.f_sub_int_mid$s.PC1)
+
+# Open
+myot.f_sub_open_early <-myot.f_sub[myot.f_sub$season== "Early" & myot.f_sub$PlotType== "Open",  ]
+open_early_max <-max(myot.f_sub_open_early$s.PC1)
+open_early_min <-min(myot.f_sub_open_early$s.PC1)
+
+myot.f_sub_open_late <-myot.f_sub[myot.f_sub$season== "Late" & myot.f_sub$PlotType== "Open",  ]
+open_late_max <-max(myot.f_sub_open_late$s.PC1)
+open_late_min <-min(myot.f_sub_open_late$s.PC1)
+
+myot.f_sub_open_mid <-myot.f_sub[myot.f_sub$season== "Medium" & myot.f_sub$PlotType== "Open",  ]
+open_mid_max <-max(myot.f_sub_open_mid$s.PC1)
+open_mid_min <-min(myot.f_sub_open_mid$s.PC1)
+
+
+#### Crop the predictions to these ranges ####
+# canopy
+newdataf_can_early <-newdataf_sub[newdataf_sub$season== "Early" & newdataf_sub$PlotType== "Canopy" &
+                                  newdataf_sub$s.PC1 >= can_early_min & newdataf_sub$s.PC1 <= can_early_max ,  ]
+
+newdataf_can_late <-newdataf_sub[newdataf_sub$season== "Late" & newdataf_sub$PlotType== "Canopy" &
+                                    newdataf_sub$s.PC1 >= can_late_min & newdataf_sub$s.PC1 <= can_late_max ,  ]
+
+newdataf_can_mid <-newdataf_sub[newdataf_sub$season== "Medium" & newdataf_sub$PlotType== "Canopy" &
+                                   newdataf_sub$s.PC1 >= can_mid_min & newdataf_sub$s.PC1 <= can_mid_max ,  ]
+
+# interior
+newdataf_int_early <-newdataf_sub[newdataf_sub$season== "Early" & newdataf_sub$PlotType== "Interior" &
+                                    newdataf_sub$s.PC1 >= int_early_min & newdataf_sub$s.PC1 <= int_early_max ,  ]
+
+newdataf_int_late <-newdataf_sub[newdataf_sub$season== "Late" & newdataf_sub$PlotType== "Interior" &
+                                   newdataf_sub$s.PC1 >= int_late_min & newdataf_sub$s.PC1 <= int_late_max ,  ]
+
+newdataf_int_mid <-newdataf_sub[newdataf_sub$season== "Medium" & newdataf_sub$PlotType== "Interior" &
+                                  newdataf_sub$s.PC1 >= int_mid_min & newdataf_sub$s.PC1 <= int_mid_max ,  ]
+
+# open
+newdataf_open_early <-newdataf_sub[newdataf_sub$season== "Early" & newdataf_sub$PlotType== "Open" &
+                                    newdataf_sub$s.PC1 >= open_early_min & newdataf_sub$s.PC1 <= open_early_max ,  ]
+
+newdataf_open_late <-newdataf_sub[newdataf_sub$season== "Late" & newdataf_sub$PlotType== "Open" &
+                                   newdataf_sub$s.PC1 >= open_late_min & newdataf_sub$s.PC1 <= open_late_max ,  ]
+
+newdataf_open_mid <-newdataf_sub[newdataf_sub$season== "Medium" & newdataf_sub$PlotType== "Open" &
+                                  newdataf_sub$s.PC1 >= open_mid_min & newdataf_sub$s.PC1 <= open_mid_max ,  ]
+
+#### recombine prediction dataframes ####
+test <-rbind(newdataf_can_early, newdataf_can_late, newdataf_can_mid,
+             newdataf_int_early, newdataf_int_late, newdataf_int_mid,
+             newdataf_open_early,newdataf_open_late, newdataf_open_mid )
+
+# Reorder factor levels for plotting
+test$season   <- factor(test$season, levels = c("Early", "Medium", "Late"))
+test$PlotType <- factor(test$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+newdataf_sub$season   <- factor(newdataf_sub$season, levels = c("Early", "Medium", "Late"))
+newdataf_sub$PlotType <- factor(newdataf_sub$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+
+#### plot ####
+# initial plot is for the original predictions
+(p<-ggplot(newdataf_sub, aes(x = s.PC1, y = predicted,
+                             group = PlotType, color = PlotType, fill = PlotType)) +
+   
+   # Add average line for each combination of PlotType and Season
+   stat_summary(fun = "mean",  
+                geom = "line", linewidth = 1, linetype =2) + 
+   stat_summary(fun.data = "mean_cl_normal", 
+                geom = "ribbon", alpha = 0.1) + 
+   # Set the color and fill scale based on PlotType
+   scale_color_manual(values = plot.cols) +
+   scale_fill_manual(values = plot.cols) +
+   
+   # Facet the plot by Season
+   facet_wrap(~season, scales = "fixed", ncol = 3, 
+              labeller = labeller(season = seas.labs))  +
+   
+   # Customize the theme for a cleaner look
+   theme_minimal() +
+   theme(legend.position = "none",
+         text = element_text(size = 15),
+         plot.title = element_text(face = "bold")) +
+   
+   # Change legend title
+   labs(x = "Openness", y = "", 
+        title =  expression(paste(italic("Myotis "), "feeding activity"))) +
+   scale_color_manual(name = "Habitat", values = plot.cols) +
+   scale_fill_manual(name = "Habitat", values = plot.cols) +
+   xlim(-3, 2)
+)
+
+# Now readd the predictions within range as an overlay
+(predf<-p + 
+    stat_summary(data = test, fun = "mean",  
+                 geom = "line", linewidth = 1, linetype = 1, alpha=0.9) + 
+    stat_summary(data = test, fun.data = "mean_cl_normal", 
+                 geom = "ribbon", alpha = 0.75) )
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+
+### Myotis feeding activity predictions
+# Subset to columns we are actually interested in for ease
+newdatac_sub <-subset(newdatac, select = c("s.PC1", "season", "PlotType","predicted"))
+myot.c_sub   <-subset(myot.c, select = c("s.PC1", "season", "PlotType"))
+
+#### Find the ranges we want to predict within for each grouping ####
+# Canopy
+myot.c_sub_can_early <-myot.c_sub[myot.c_sub$season== "Early" & myot.c_sub$PlotType== "Canopy",  ]
+can_early_max <-max(myot.c_sub_can_early$s.PC1)
+can_early_min <-min(myot.c_sub_can_early$s.PC1)
+
+myot.c_sub_can_late <-myot.c_sub[myot.c_sub$season== "Late" & myot.c_sub$PlotType== "Canopy",  ]
+can_late_max <-max(myot.c_sub_can_late$s.PC1)
+can_late_min <-min(myot.c_sub_can_late$s.PC1)
+
+myot.c_sub_can_mid <-myot.c_sub[myot.c_sub$season== "Medium" & myot.c_sub$PlotType== "Canopy",  ]
+can_mid_max <-max(myot.c_sub_can_mid$s.PC1)
+can_mid_min <-min(myot.c_sub_can_mid$s.PC1)
+
+# Interior
+myot.c_sub_int_early <-myot.c_sub[myot.c_sub$season== "Early" & myot.c_sub$PlotType== "Interior",  ]
+int_early_max <-max(myot.c_sub_int_early$s.PC1)
+int_early_min <-min(myot.c_sub_int_early$s.PC1)
+
+myot.c_sub_int_late <-myot.c_sub[myot.c_sub$season== "Late" & myot.c_sub$PlotType== "Interior",  ]
+int_late_max <-max(myot.c_sub_int_late$s.PC1)
+int_late_min <-min(myot.c_sub_int_late$s.PC1)
+
+myot.c_sub_int_mid <-myot.c_sub[myot.c_sub$season== "Medium" & myot.c_sub$PlotType== "Interior",  ]
+int_mid_max <-max(myot.c_sub_int_mid$s.PC1)
+int_mid_min <-min(myot.c_sub_int_mid$s.PC1)
+
+# Open
+myot.c_sub_open_early <-myot.c_sub[myot.c_sub$season== "Early" & myot.c_sub$PlotType== "Open",  ]
+open_early_max <-max(myot.c_sub_open_early$s.PC1)
+open_early_min <-min(myot.c_sub_open_early$s.PC1)
+
+myot.c_sub_open_late <-myot.c_sub[myot.c_sub$season== "Late" & myot.c_sub$PlotType== "Open",  ]
+open_late_max <-max(myot.c_sub_open_late$s.PC1)
+open_late_min <-min(myot.c_sub_open_late$s.PC1)
+
+myot.c_sub_open_mid <-myot.c_sub[myot.c_sub$season== "Medium" & myot.c_sub$PlotType== "Open",  ]
+open_mid_max <-max(myot.c_sub_open_mid$s.PC1)
+open_mid_min <-min(myot.c_sub_open_mid$s.PC1)
+
+
+#### Crop the predictions to these ranges ####
+# canopy
+newdatac_can_early <-newdatac_sub[newdatac_sub$season== "Early" & newdatac_sub$PlotType== "Canopy" &
+                                  newdatac_sub$s.PC1 >= can_early_min & newdatac_sub$s.PC1 <= can_early_max ,  ]
+
+newdatac_can_late <-newdatac_sub[newdatac_sub$season== "Late" & newdatac_sub$PlotType== "Canopy" &
+                                    newdatac_sub$s.PC1 >= can_late_min & newdatac_sub$s.PC1 <= can_late_max ,  ]
+
+newdatac_can_mid <-newdatac_sub[newdatac_sub$season== "Medium" & newdatac_sub$PlotType== "Canopy" &
+                                   newdatac_sub$s.PC1 >= can_mid_min & newdatac_sub$s.PC1 <= can_mid_max ,  ]
+
+# interior
+newdatac_int_early <-newdatac_sub[newdatac_sub$season== "Early" & newdatac_sub$PlotType== "Interior" &
+                                    newdatac_sub$s.PC1 >= int_early_min & newdatac_sub$s.PC1 <= int_early_max ,  ]
+
+newdatac_int_late <-newdatac_sub[newdatac_sub$season== "Late" & newdatac_sub$PlotType== "Interior" &
+                                   newdatac_sub$s.PC1 >= int_late_min & newdatac_sub$s.PC1 <= int_late_max ,  ]
+
+newdatac_int_mid <-newdatac_sub[newdatac_sub$season== "Medium" & newdatac_sub$PlotType== "Interior" &
+                                  newdatac_sub$s.PC1 >= int_mid_min & newdatac_sub$s.PC1 <= int_mid_max ,  ]
+
+# open
+newdatac_open_early <-newdatac_sub[newdatac_sub$season== "Early" & newdatac_sub$PlotType== "Open" &
+                                    newdatac_sub$s.PC1 >= open_early_min & newdatac_sub$s.PC1 <= open_early_max ,  ]
+
+newdatac_open_late <-newdatac_sub[newdatac_sub$season== "Late" & newdatac_sub$PlotType== "Open" &
+                                   newdatac_sub$s.PC1 >= open_late_min & newdatac_sub$s.PC1 <= open_late_max ,  ]
+
+newdatac_open_mid <-newdatac_sub[newdatac_sub$season== "Medium" & newdatac_sub$PlotType== "Open" &
+                                  newdatac_sub$s.PC1 >= open_mid_min & newdatac_sub$s.PC1 <= open_mid_max ,  ]
+
+#### recombine prediction dataframes ####
+test <-rbind(newdatac_can_early, newdatac_can_late, newdatac_can_mid,
+             newdatac_int_early, newdatac_int_late, newdatac_int_mid,
+             newdatac_open_early,newdatac_open_late, newdatac_open_mid )
+
+# Reorder factor levels for plotting
+test$season   <- factor(test$season, levels = c("Early", "Medium", "Late"))
+test$PlotType <- factor(test$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+newdatac_sub$season   <- factor(newdatac_sub$season, levels = c("Early", "Medium", "Late"))
+newdatac_sub$PlotType <- factor(newdatac_sub$PlotType, levels = c("Open", "Interior", "Canopy"))
+
+
+#### plot ####
+# initial plot is for the original predictions
+(p<-ggplot(newdatac_sub, aes(x = s.PC1, y = predicted,
+                             group = PlotType, color = PlotType, fill = PlotType)) +
+   
+   # Add average line for each combination of PlotType and Season
+   stat_summary(fun = "mean",  
+                geom = "line", linewidth = 1, linetype =2) + 
+   stat_summary(fun.data = "mean_cl_normal", 
+                geom = "ribbon", alpha = 0.1) + 
+   # Set the color and fill scale based on PlotType
+   scale_color_manual(values = plot.cols) +
+   scale_fill_manual(values = plot.cols) +
+   
+   # Facet the plot by Season
+   facet_wrap(~season, scales = "fixed", ncol = 3, 
+              labeller = labeller(season = seas.labs))  +
+   
+   # Customize the theme for a cleaner look
+   theme_minimal() +
+   theme(legend.position = "none",
+         text = element_text(size = 15),
+         plot.title = element_text(face = "bold")) +
+   
+   # Change legend title
+   labs(x = "Openness", y = "Bat passes per night", 
+        title =  expression(paste(italic("Myotis "), "commuting activity"))) +
+   scale_color_manual(name = "Habitat", values = plot.cols) +
+   scale_fill_manual(name = "Habitat", values = plot.cols) +
+   xlim(-3, 2)
+)
+
+# Now readd the predictions within range as an overlay
+(predc<-p + 
+    stat_summary(data = test, fun = "mean",  
+                 geom = "line", linewidth = 1, linetype = 1, alpha=0.9) + 
+    stat_summary(data = test, fun.data = "mean_cl_normal", 
+                 geom = "ribbon", alpha = 0.75) )
+
+
+cowplot::plot_grid(predm, predp, predc, predf, nrow = 2, labels = c("a.", "b.", "c.", "d."))
+ggsave(path = output_today, filename = "SREmodelPreds.tiff", width = 12, height = 8, device='tiff', dpi=600) 
+
+```
+
+
+
+
 
 ## More general seasonal plot 
 ## Photoperiod plot - raw data 
