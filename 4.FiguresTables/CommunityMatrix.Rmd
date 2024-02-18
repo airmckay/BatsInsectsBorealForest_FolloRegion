@@ -228,10 +228,10 @@ sites <- ggplot(batpc3) +
   geom_col(aes(x = SitePlot1, y = batpass, fill = PlotType, alpha = year), 
            position = "dodge") +
   facet_wrap(~PlotType,  scales = "free_x") + 
-  theme(strip.text.x = element_text(size = 20)) + 
+  theme(strip.text.x = element_text(size = 40)) + 
   theme_classic() + 
   theme(legend.position = "none") +
-  theme(text=element_text(size=15)) + 
+  theme(text=element_text(size=20)) + 
   scale_fill_manual(name = "Habitat", values = plot.cols) + 
   scale_alpha_discrete(range = c(1, 0.8)) + 
   xlab("Sites") + ylab("Total bat passes") + 
@@ -249,21 +249,72 @@ sites <- ggplot(batpc3) +
     "FF09-OB" = "S-09", "FF09-IB" = "S-09", "FF09-CB" = "S-09",
     "FF10-OB" = "S-10", "FF10-IB" = "S-10", "FF10-CB" = "S-10")) 
 sites
-ggsave(path = output_today, filename = "CommunitySites.tiff", width = 20, height = 10, device='tiff', dpi=300) 
+ggsave(path = output_today, filename = "CommunitySites.tiff", width = 21, height = 7, device='tiff', dpi=300) 
 # 2022 = dark
 # 2021 = light
 
 
 ## Tally also requested a behavior bar plot
 
-bats1$taxa <- bats1$manual.id
-bats1$taxa <- gsub("MYOT", "Myotis", bats1$taxa)
-bats1$taxa <- gsub("PAUR", "P.auritus", bats1$taxa)
-bats1$taxa <- factor(bats1$taxa)
+###########################################################
+## Unaggregated bat acoustic data
+###########################################################
 
-behavplot <- ggplot(data = bats1 %>%
+rawbat <- read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/Inputs/ManualAnalaysis21_22_combined_datetime_PlotType_Guild.csv", 
+     col_types = cols(...1 = col_skip()))
+# 108989 
+
+rawbat <- rawbat %>% mutate(AUTO.ID = factor(AUTO.ID),
+                            manual.id = factor(manual.id),
+                            behavior = factor(behavior),
+                            guild = factor(guild),
+                            year = factor(year),
+                            Site = factor(Site), 
+                        SitePlot = factor(SitePlot), 
+                        PlotType = factor(PlotType)) 
+
+levels(rawbat$manual.id)
+table(rawbat$manual.id)
+levels(rawbat$AUTO.ID)
+
+
+rbats.0 <- rbats  %>% filter(manual.id != "Noise") %>% droplevels() %>% 
+  mutate(taxa = factor(case_when(
+    manual.id == "MYOT" ~ "Myotis", 
+    manual.id == "PAUR" ~ "P. auritus", 
+    manual.id == "PIPY" ~ "P. pygmaeus", 
+    manual.id == "PINA" ~ "P. nathusii", 
+    manual.id == "MR1" ~ "Pipistrellus spp.",
+    manual.id == "EPNI" ~ "E. nilssonii", 
+    manual.id == "LR1" ~ "LR1",
+    manual.id == "LR2" ~ "LR2", 
+    manual.id == "NYNO" ~ "N. noctula",
+    manual.id == "NoID"  ~ "NoID")))
+
+
+rbats.0 $taxa <- factor(rbats.0 $taxa, levels=c("Myotis", "P. auritus", 
+                             "P. pygmaeus", "P. nathusii", "Pipistrellus spp.",
+                             "E. nilssonii", "LR1",  "LR2", "N. noctula",
+                             "NoID")) 
+
+rbats.0$behavior <- gsub("Both", "Feeding", rbats.0$behavior)
+rbats.0$behavior <- factor(rbats.0$behavior)
+
+table(rbats.0$behavior, rbats.0$manual.id)
+  #            MYOT  PAUR  PIPY  PINA   MR1  EPNI   LR1   LR2  NYNO  NoID
+  # Commuting 61007  1840  4450    22   692 12765   258  1118   231   768
+  # Feeding   13775     0   430     0    24  1231     2    11     2    15
+  # Social      198   558  6845     0     3   195     3     1     0    81
+
+test <- rbats.0 %>% filter(manual.id == "MYOT") %>% droplevels
+table(test$behavior, test$PlotType)
+  #           Canopy Interior  Open
+  # Commuting  16684    13848 30475
+  # Feeding     4135     2526  7114
+  # Social        40       32   126
+
+behavplot <- ggplot(data = rbats.0 %>%
                      filter(guild == "SRE") %>% 
-                     filter(batpass > 0) %>% 
                       droplevels()) + 
   aes(x = PlotType, fill = behavior, by = PlotType) +
   geom_bar(position = "fill", stat = "prop") + 
@@ -278,13 +329,13 @@ behavplot <- ggplot(data = bats1 %>%
   ylab("") + xlab("")
 
 behavplot
-ggsave(path = output_today, filename = "BehaviorFigure.tiff", width = 10, height = 12, device='tiff', dpi=300) 
+ggsave(path = output_today, filename = "BehaviorFigure.tiff", width = 10, height = 8, device='tiff', dpi=300) 
 
 
 ## Figure 4
 cowplot::plot_grid(plotgg2, behavplot, nrow = 1, labels = c("", ""))
-
-ggsave(path = output_today, filename = "NMDS_BehavFigure.tiff", width = 25, height = 27, device='tiff', dpi=300) 
+# DOesnt really work
+# ggsave(path = output_today, filename = "NMDS_BehavFigure.tiff", width = 25, height = 27, device='tiff', dpi=300) 
 
 ```
 

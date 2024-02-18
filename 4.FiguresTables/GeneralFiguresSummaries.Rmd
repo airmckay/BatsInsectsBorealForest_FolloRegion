@@ -147,6 +147,9 @@ bats1$taxa <- factor(bats1$taxa, levels=c("Myotis spp.", "P. auritus",
                              "E. nilssonii", "LR1",  "LR2", "N. noctula",
                              "NoID")) 
 
+
+
+
 mid.cols <- c( "#c5dcf1","#5f768b",
               "#fff68f","#ccc472", "#999355",
               "#FFB6C1", "#b27f87", "#7f5b60", "#4c3639",
@@ -438,14 +441,14 @@ S1.21.l <- ggplot(b21) +
   facet_wrap(~PlotType, nrow=3) + 
   scale_color_manual(values = plot.cols) + 
   xlab("2021") + ylab(" ") +
-  ggtitle("Data collection") + 
+  ggtitle("Bat activity") + 
   theme(legend.position="none") +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        text = element_text(size = 11),
+        text = element_text(size = 25),
         axis.line = element_line(colour = "black"))
-S1.21.l
+#S1.21.l
 
 S1.21.r <- ggplot(b21) + 
   geom_point(aes(x = night, y = Site, color = active.night), 
@@ -453,19 +456,19 @@ S1.21.r <- ggplot(b21) +
   facet_wrap(~PlotType, nrow=3) + 
   scale_color_manual(values = "#DAB82A") + 
   xlab("2021") + ylab(" ") +
-  ggtitle("Survey effort") + 
+  ggtitle("Active detector nights") + 
   theme(legend.position="none") +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        text = element_text(size = 11),
+        text = element_text(size = 25),
         axis.line = element_line(colour = "black"))
-S1.21.r
+#S1.21.r
 
-windows()
+#windows()
 S1.21 <- cowplot::plot_grid(S1.21.l, S1.21.r)
 
-S1.21
+#S1.21
 
 ## 2022
 
@@ -476,14 +479,14 @@ S1.22.l <- ggplot(b22) +
   facet_wrap(~PlotType, nrow=3) + 
   scale_color_manual(values = plot.cols) + 
   xlab("2022") + ylab(" ") +
-  ggtitle("Data collection") + 
+  ggtitle("Bat activity") + 
   theme(legend.position="none") +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        text = element_text(size = 11),
+        text = element_text(size = 25),
         axis.line = element_line(colour = "black"))
-S1.22.l
+#S1.22.l
 
 
 S1.22.r <- ggplot(b22) + 
@@ -492,26 +495,25 @@ S1.22.r <- ggplot(b22) +
   facet_wrap(~PlotType, nrow=3) + 
   scale_color_manual(values = "#DAB82A") + 
   xlab("2022") + ylab(" ") +
-  ggtitle("Survey effort") + 
+  ggtitle("Active detector nights") + 
   theme(legend.position="none") +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        text = element_text(size = 11),
+        text = element_text(size = 25),
         axis.line = element_line(colour = "black"))
-S1.22.r
+#S1.22.r
 
 S1.22 <- cowplot::plot_grid(S1.22.l, S1.22.r)
 #windows()
-S1.22
+#S1.22
 
 ## Now all together 
-
-surveyeffort <- cowplot::plot_grid(S1.21, S1.22, nrow = 2, labels = c("a.", "b."))
+surveyeffort <- cowplot::plot_grid(S1.21, S1.22, ncol = 2, labels = c("a.", "b."))
 
 surveyeffort
 
-# ggsave(path = output_today, filename = "SurveyEffort.tiff", width = 8, height = 10, device='tiff', dpi=300) 
+ggsave(path = output_today, filename = "SurveyEffort.tiff", width = 23, height = 14, device='tiff', dpi=300) 
 
 
 # What was the average number of detector nights per SitePlotYear ?
@@ -589,6 +591,27 @@ rawbat <- rawbat %>% mutate(AUTO.ID = factor(AUTO.ID),
 levels(rawbat$manual.id)
 table(rawbat$manual.id)
 levels(rawbat$AUTO.ID)
+
+
+rbats.0 <- rbats  %>% filter(manual.id != "Noise") %>% droplevels() %>% 
+  mutate(taxa = factor(case_when(
+    manual.id == "MYOT" ~ "Myotis spp.", 
+    manual.id == "PAUR" ~ "P. auritus", 
+    manual.id == "PIPY" ~ "P. pygmaeus", 
+    manual.id == "PINA" ~ "P. nathusii", 
+    manual.id == "MR1" ~ "Pipistrellus spp.",
+    manual.id == "EPNI" ~ "E. nilssonii", 
+    manual.id == "LR1" ~ "LR1",
+    manual.id == "LR2" ~ "LR2", 
+    manual.id == "NYNO" ~ "N. noctula",
+    manual.id == "NoID"  ~ "NoID")))
+
+
+rbats.0 $taxa <- factor(rbats.0 $taxa, levels=c("Myotis spp.", "P. auritus", 
+                             "P. pygmaeus", "P. nathusii", "Pipistrellus spp.",
+                             "E. nilssonii", "LR1",  "LR2", "N. noctula",
+                             "NoID")) 
+
 # 5116 NAs for AUTO.ID and INDIR for recordings that had multiple bats/were parsed. Fix this here:
 
 ### Subset for the NA observations 
@@ -682,20 +705,29 @@ rbats$manual.id <- factor(rbats$manual.id,
   "PIPY", "PINA",  "MR1",
   "EPNI", "LR1", "LR2", "NYNO",
   "NoID", "Noise"))
-
+levels(rbats$manual.id)
 table(rbats$manual.id)
 
 levels(rbats$auto)
 # [1] "BABA" "EPNI" "EPSE" "MYOT" "NYLE" "NYNO" "NoID" "PAUR"
 #  [9] "PAUS" "PINA" "PIPI" "PIPY" "VEMU"
 
-rbats$auto <- factor(rbats$auto, levels = c(
-  "MYOT", "PAUR", "PAUS", "BABA",
-  "PIPY", "PINA",  "PIPI",
-  "EPNI", "EPSE", "VEMU", "NYLE", "NYNO",
-  "NoID"))
 
-levels(rbats$manual.id)
+
+levels(rbats$AUTO.ID)
+# "BARBAR" "EPTNIL" "EPTSER" "MYOALC" "MYOBEC" "MYOBRA" "MYODAS" "MYODAU" "MYOMYO"
+# "MYOMYS" "MYONAT" "NYCLEI" "NYCNOC" "NoID"   "PIPNAT" "PIPPIP" "PIPPYG" "PLEAUR"
+# "PLEAUS" "VESMUR"
+
+rbats$AUTO.ID <- factor(rbats$AUTO.ID, levels = c(
+  "MYOALC", "MYOBEC", "MYOBRA", "MYODAS", "MYODAU", 
+  "MYOMYO", "MYOMYS", "MYONAT",
+  "PLEAUR", "PLEAUS", "BARBAR",
+  "PIPNAT", "PIPPIP", "PIPPYG",
+  "EPTNIL", "EPTSER", "VESMUR", "NYCLEI", "NYCNOC",
+  "NoID")) 
+
+levels(rbats$auto)
 
 auto.cols <- c( "#c5dcf1","#5f768b", "#788ea2", "#34546e",
               "#fff68f","#ccc472", "#999355",
@@ -704,6 +736,7 @@ auto.cols <- c( "#c5dcf1","#5f768b", "#788ea2", "#34546e",
 
 cvdPlot(replacePlotColor(displayColors(auto.cols)))
 
+
 ### rbats Guild and Auto Guild
 levels(rbats$guild)
 rbats$guild <- factor(rbats$guild, levels=c("SRE", "MRE", "LRE", "NoID", "Noise")) 
@@ -711,9 +744,21 @@ guild.cols <- c("#c5dcf1", "#fff68f", "#FFB6C1", "gray", "black")
 cvdPlot(replacePlotColor(displayColors(guild.cols)))
 
 levels(rbats$auto.guild)
-rbats$auto.guild <- factor(rbats$auto.guild, levels=c("SRE", "MRE", "LRE", "NoID")) 
-auto.guild.cols <- c("#c5dcf1", "#fff68f", "#FFB6C1", "gray")
+rbats$auto.guild <- factor(rbats$auto.guild, levels=c("NoID", "LRE", "MRE", "SRE")) 
+auto.guild.cols <- c("gray", "#FFB6C1", "#fff68f", "#c5dcf1")
 cvdPlot(replacePlotColor(displayColors(auto.guild.cols)))
+
+  # "MYOT", "PAUR", "PAUS", "BABA",
+  # "PIPY", "PINA",  "PIPI",
+  # "EPNI", "EPSE", "VEMU", "NYLE", "NYNO",
+  # "NoID"
+rbats$auto <- factor(rbats$auto, levels = c(
+  "NoID",
+  "NYNO", "NYLE", "VEMU", "EPSE", "EPNI", 
+  "PIPI", "PINA",  "PIPY",
+  "BABA", "PAUS",  "PAUR", "MYOT"
+  ))
+levels(rbats$auto)
 
 id_bar <- 
   ggstatsplot::ggbarstats(rbats, x = auto, y=manual.id, 
@@ -736,11 +781,11 @@ id_bar <-
   )) +
   xlab("Manually Identified Bat Taxa") +
   guides(fill=guide_legend("Auto ID")) +
-  theme(text = element_text(size = 13), 
+  theme(text = element_text(size = 15), 
         legend.position="left",
-        axis.title.x = element_text(size = 13),
-        plot.subtitle = element_text(size = 10),
-        legend.text = element_text(size = 8)) +
+        axis.title.x = element_text(size = 15),
+        plot.subtitle = element_text(size = 15),
+        legend.text = element_text(size = 13)) +
   ggtitle("", subtitle = "n = 108,989 bat passes") + 
   theme(plot.title = element_text(size = 13, face = "italic"))
 
@@ -767,6 +812,11 @@ dim(rbats1)
 # 108989 - 106525
 # 2464 noise passes removed 
 
+levels(rbats1$auto.guild)
+# "SRE"  "MRE"  "LRE"  "NoID"
+
+  
+  
 auto.guild.cols <- c("#c5dcf1", "#fff68f", "#FFB6C1", "gray")
 
 guild_bar <- ggstatsplot::ggbarstats(
@@ -778,11 +828,11 @@ guild_bar <- ggstatsplot::ggbarstats(
       "LRE" = "#FFB6C1", "NoID" = "gray")) + 
   ggplot2::xlab("Manually Identified Foraging Guilds") + 
   guides(fill=guide_legend("Auto ID")) + 
-  theme(text = element_text(size = 13), 
+  theme(text = element_text(size = 14), 
         legend.position="right",
-        axis.title.x = element_text(size = 13),
+        axis.title.x = element_text(size = 15),
         legend.title = element_text(size = 13),
-        legend.text = element_text(size = 8)) +
+        legend.text = element_text(size = 13)) +
   ggtitle("")
 guild_bar
 
@@ -801,18 +851,6 @@ ggsave(path = output_today, filename = "manualcsauto.tiff", width = 17, height =
 # p values - Goodness of fit chi-squared test
 
 ## Now for a table 
-levels(rbats$AUTO.ID)
-# "BARBAR" "EPTNIL" "EPTSER" "MYOALC" "MYOBEC" "MYOBRA" "MYODAS" "MYODAU" "MYOMYO"
-# "MYOMYS" "MYONAT" "NYCLEI" "NYCNOC" "NoID"   "PIPNAT" "PIPPIP" "PIPPYG" "PLEAUR"
-# "PLEAUS" "VESMUR"
-
-rbats$AUTO.ID <- factor(rbats$AUTO.ID, levels = c(
-  "MYOALC", "MYOBEC", "MYOBRA", "MYODAS", "MYODAU", 
-  "MYOMYO", "MYOMYS", "MYONAT",
-  "PLEAUR", "PLEAUS", "BARBAR",
-  "PIPNAT", "PIPPIP", "PIPPYG",
-  "EPTNIL", "EPTSER", "VESMUR", "NYCLEI", "NYCNOC",
-  "NoID")) 
   
 ### Table i. Supplementary materials 
 rbats.simpl <- rbats %>% distinct(file.name, .keep_all = TRUE) 
@@ -864,28 +902,40 @@ Bar charts showing the proportion of different species detected (acoustics) acro
 
 ```{r}
 
-# Exploratory: 
-# First check variation across sites 
-# ggplot(data = bats1 %>% filter(batpass > 0)) + 
-#   aes(x = PlotType, fill = manual.id, by = PlotType) +
-#   geom_bar(position = "fill", stat = "prop") + 
-#   scale_fill_manual(values = mid.cols) + 
-#   theme_minimal() + 
-#   facet_wrap(~SiteYear) 
+rbats.0 <- rbats  %>% filter(manual.id != "Noise") %>% droplevels() %>% 
+  mutate(taxa = factor(case_when(
+    manual.id == "MYOT" ~ "Myotis", 
+    manual.id == "PAUR" ~ "P. auritus", 
+    manual.id == "PIPY" ~ "P. pygmaeus", 
+    manual.id == "PINA" ~ "P. nathusii", 
+    manual.id == "MR1" ~ "Pipistrellus spp.",
+    manual.id == "EPNI" ~ "E. nilssonii", 
+    manual.id == "LR1" ~ "LR1",
+    manual.id == "LR2" ~ "LR2", 
+    manual.id == "NYNO" ~ "N. noctula",
+    manual.id == "NoID"  ~ "NoID")))
+
+
+rbats.0 $taxa <- factor(rbats.0 $taxa, levels=c("Myotis", "P. auritus", 
+                             "P. pygmaeus", "P. nathusii", "Pipistrellus spp.",
+                             "E. nilssonii", "LR1",  "LR2", "N. noctula",
+                             "NoID")) 
+
+rbats.0$PlotType <- factor(rbats.0$PlotType, levels=c("Open", "Interior", "Canopy"))
+levels(rbats.0$PlotType)
 
 # Now for only plot types, all sites combined, separate years 
-taxaplot <- ggplot(data = bats1 %>% 
-                     filter(batpass > 0)) + 
-  aes(x = PlotType, fill = taxa, by = PlotType) +
+taxaplot <- ggplot(data = rbats.0) + 
+  aes(x = PlotType,  fill = taxa, by = PlotType) +
   geom_bar(position = "fill", stat = "prop") + 
   scale_fill_manual(values = mid.cols, name="",
-                    labels = levels(bats1$taxa), 
+                    labels = levels(rbats.0$taxa), 
                     expression(italic())) + 
   theme_minimal() + 
   facet_wrap(~year) +
   theme(legend.title=element_blank(),
         legend.text = element_text(face = "italic"),
-        text=element_text(size=15),
+        text=element_text(size=20),
         legend.position = "bottom") +
   ylab("") + xlab("")
 
@@ -894,63 +944,7 @@ taxaplot
 # cvdPlot(taxaplot)
 # passes colorblindess check
 
-guildplot <- ggplot(data = bats1 %>% filter(batpass >0) %>% droplevels()) +
-  aes(x = behavior, fill = PlotType, by = behavior) +
-  geom_bar(position = "fill", stat = "prop") +
-  scale_fill_manual(values = plot.cols) +
-  theme_minimal() +
-  ylab("") +
-  xlab("") +
-   theme(text = element_text(size = 15),
-        legend.position="bottom",
-        legend.title=element_blank()) +
-  facet_wrap(~guild)
-guildplot
+ggsave(path = output_today, filename = "taxabarplot.tiff", width = 12, height = 8, device='tiff', dpi=600) 
 
-
-figs3 <- cowplot::plot_grid(taxaplot, guildplot, nrow = 2, labels = c("a.", "b.")) 
-figs3
-
-ggsave(path = output_today, filename = "behavior_guild_boxplots.tiff", width = 8, height = 8, device='tiff', dpi=300) 
-
-### Box plots 
-
-## All SRE activity across plot types 
-S<- ggplot(data = bats1 %>%
-         filter(batpass > 0) %>% 
-         filter(guild == "SRE") %>% 
-         droplevels()) + 
-  aes(x = PlotType, fill = PlotType, y = batpass30) +
-  geom_boxplot() + 
-  scale_fill_manual(values = plot.cols) + 
-  theme_minimal() +
-  ggtitle("SRE")
-S
-
-# Myotis feeding activity 
-Mfeed <- ggplot(data = bats1 %>%
-         filter(batpass > 0) %>% 
-         filter(manual.id == "MYOT") %>% 
-         filter(behavior == "Feeding") %>% 
-         droplevels()) + 
-  aes(x = PlotType, fill = PlotType, y = batpass30) +
-  geom_boxplot() + 
-  scale_fill_manual(values = plot.cols) + 
-  theme_minimal() +
-  ggtitle("Myotis feeding")
-Mfeed
-
-## Violin 
-Mfeed <- ggplot(data = bats1 %>%
-         filter(batpass > 0) %>% 
-         filter(manual.id == "MYOT") %>% 
-         filter(behavior == "Feeding") %>% 
-         droplevels()) + 
-  aes(x = PlotType, fill = PlotType, y = batpass30) +
-  geom_violin() + 
-  scale_fill_manual(values = plot.cols) + 
-  theme_minimal() +
-  ggtitle("Myotis feeding")
-Mfeed
 ```
 

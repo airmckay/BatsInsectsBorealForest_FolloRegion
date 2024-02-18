@@ -444,9 +444,11 @@ pca.ggplot <- ggplot() +
                aes(x = 0, xend = PC1/2, y = 0, yend = PC2/2), lwd = 0.1) + 
   geom_text(
     data = trait.loadings, 
+    size = 5,
     aes(x = PC1/2, y = PC2/2+0.1, label = trait)) + 
   theme_bw() +
-  theme(legend.position = "none") 
+  theme(legend.position = "none",
+        text = element_text(size = 25)) 
 
 pca.ggplot
 ggsave(path = output_today, filename = "ForestPCA.tiff", width = 10, height = 10, device='tiff', dpi=300) 

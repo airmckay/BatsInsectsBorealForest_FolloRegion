@@ -249,6 +249,8 @@ AIC(MY1, MY2, MY3, MY3b, MY4, MY4b)
 # MY4b 16  44536.75
 beep()
 
+summary(MY1)
+
 tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
           show.stat = TRUE, transform = NULL)
 
