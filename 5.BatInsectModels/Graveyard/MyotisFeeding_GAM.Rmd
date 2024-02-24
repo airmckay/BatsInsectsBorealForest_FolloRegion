@@ -1,0 +1,643 @@
+
+---
+title: "Myotis_Feeding_GAM"
+output: html_document
+date: "2024-02-13"
+---
+
+
+```{r}
+library(rgl)
+library(vctrs)
+library(plotly)
+library(ggplot2)
+library(dplyr)
+library(gamm4)
+library(mgcv)
+library(itsadug)
+library(plot3D)
+library(readr)
+library(stringr)
+library(beepr)
+library(kableExtra)
+library(papeR)
+library(skimr)
+library(vtable)
+library(ggdark)
+library(RColorBrewer)
+library(cowplot)
+library(readxl)
+library(readr)
+library(ggstats)
+library(ggpmisc)
+library(gginnards)
+library(colorBlindness)
+library(vegan) 
+library(TMB)
+library(glmmTMB)
+library(DHARMa)
+library(textshape)
+library(tidyr)
+library(plotly)
+library(MASS)
+
+## Setup output directory 
+output <- "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/5.BatInsectModels/Outputs"
+
+file.name <- "M.Feed_GAM"
+
+todays_date <- Sys.Date()
+ 
+dir.name <- str_c(output,"/", file.name, "_", todays_date)
+dir.name
+ 
+output_today <- dir.name
+output_today
+
+dir.create(output_today)
+output_today
+# "C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/5.BatInsectModels/Outputs/M.Commut_GAM_2024-02-13"
+
+
+```
+
+
+## Import the data 
+```{r}
+mydata <-read_csv("C:/Users/apmc/OneDrive - Norwegian University of Life Sciences/3. Follo Forest 2021-2023/Manuscripts/Analyses/ForDryad/2.AggregationCombineCovariates/NightAgg_BatsInsects_SRE_Open/Outputs/NightAggBatsInsects_2024-02-01/SREbatsInsects_se.Weatherphoto.csv",
+                  col_types = cols(...1 = col_skip()))#----LOAD THE DATA
+# 2441 obs 26 vars 
+
+#---QUICK INITIAL LOOK AT THE 'mydata' DATA OBJECT
+str(mydata)
+#---fix date format for variable night
+mydata$night <- as.Date(mydata$night, "%d.%m.%Y")
+#---year as factor
+mydata$year <- as.factor(mydata$year)
+#---Site as factor
+mydata$Site <- as.factor(mydata$Site)
+#---SitePlotYear as factor
+mydata$SitePlotYear <- as.factor(mydata$SitePlotYear)
+#---new insect variable to account for nPhoto
+mydata$InsectIndex <- mydata$nInsects / mydata$nPhotos
+
+str(mydata)
+head(mydata)
+tail(mydata)
+dim(mydata)
+summary(mydata) 
+names(mydata)
+```
+
+
+## Data exploration and preparing subsets
+```{r}
+#select only manual.id level MYOT and behavior level Feeding
+filtered_df <- subset(mydata, manual.id == "MYOT" & behavior == "Feeding")
+dim(filtered_df)
+
+summary(filtered_df)
+
+DF <- filtered_df
+dim(DF)
+# 401  27
+summary(DF)
+#There are no NAs for nInsect or batpass in this subset
+
+
+#How many observations in 2021 vs 2022
+# Create a frequency table for year
+frequency_table <- table(DF$year)
+
+# Print the frequency table
+print(frequency_table)
+#2021 2022 
+#293  108 
+
+##############LOOK AT THE INSECT DATA
+
+# Count the number of rows where InsectIndex is 0
+num_zeros <- sum(DF$InsectIndex == 0)
+
+# Calculate the total number of rows in the dataframe
+total_rows <- nrow(DF)
+
+# Calculate the percentage of rows with value 0 for InsectIndex
+percent_zeros <- (num_zeros / total_rows)*100
+# Print the result
+cat("Percent of rows with value 0 for InsectIndex:", percent_zeros, "/n")
+#Percent of rows with value 0 for InsectIndex: 16.20948
+#That is not so bad
+
+#distribution of values
+plot(1:nrow(DF), DF$InsectIndex, 
+     pch = 16, col = "blue", 
+     main = "Distribution of InsectIndex",
+     xlab = "Data Point", ylab = "InsectIndex")
+
+# Add a horizontal line at the mean
+abline(h = mean(DF$InsectIndex), col = "red", lty = 2)
+
+range(DF$InsectIndex)
+df <- DF
+
+#Replace 4 observations with values greater than 2 in InsectIndexCertain with 2
+df$InsectIndex[df$InsectIndex > 2] <- 2 
+
+plot(1:nrow(df), df$InsectIndex, 
+     pch = 16, col = "blue", 
+     main = "Distribution of InsectIndex",
+     xlab = "Data Point", ylab = "InsectIndex")
+
+# Add a horizontal line at the mean
+abline(h = mean(df$InsectIndex), col = "red", lty = 2)
+
+
+##############LOOK AT THE CanOpen variable too
+plot(1:nrow(df), df$CanOpen, 
+     pch = 16, cex = 0.3, col = "darkgreen", 
+     main = "Distribution of CanOpen",
+     xlab = "Data Point", ylab = "CanOpen")
+
+# Add a horizontal line at the mean
+abline(h = mean(df$CanOpen), col = "red", lty = 2)
+
+
+##############LOOK AT THE batpass DATA
+# Count the number of rows where batpass is 0
+num_zeros <- sum(df$batpass == 0)
+
+# Calculate the total number of rows in the dataframe
+total_rows <- nrow(df)
+
+# Calculate the percentage of rows with value 0 for batpass
+percent_zeros <- (num_zeros / total_rows)*100
+
+# Print the result
+cat("Percent of rows with value 0 for batpass:", percent_zeros, "/n")
+#Percent of rows with value 0 for batpass: 58.85287 
+#That is a lot  - will most likely need a zero-inflated model
+
+# distribution of values
+plot(1:nrow(df), df$batpass, 
+     pch = 16, col = "blue", 
+     main = "Distribution of batpass",
+     xlab = "Data Point", ylab = "batpass")
+
+# Add a horizontal line at the mean
+abline(h = mean(df$batpass), col = "red", lty = 2)
+abline(h = 20, col = "red", lty = 1)
+abline(h = 30, col = "green", lty = 1)
+
+
+#Will have to keep an eye one the outliers, but first check if some SitePlotYear
+#have very few observations
+
+
+#How many observations per SitePlotYear
+# Create a frequency table for year
+frequency_table <- table(df$SitePlotYear)
+
+# Print the frequency table
+print(frequency_table)
+
+# Levels to exclude: < 10 observation nights per SitePlotYear
+excluded_levels <- c('FF03-OB-2021', 'FF03-OB-2022', 'FF05-OB-2022', 'FF06-OB-2022', 'FF08-OB-2022', 'FF11-OB-2021')
+
+# Creating a subset excluding specified levels
+df_subset <- df[!(df$SitePlotYear %in% excluded_levels), ]
+
+# Dropping excluded levels completely
+df_subset$SitePlotYear <- droplevels(df_subset$SitePlotYear, exclude = excluded_levels)
+
+# Create a frequency table for year
+frequency_table <- table(df_subset$SitePlotYear)
+
+# Print the frequency table
+print(frequency_table)
+
+dim(df) #401 rows
+dim(df_subset) #364 rows
+
+plot(1:nrow(df_subset), df_subset$batpass, 
+     pch = 16, col = "blue", 
+     main = "subset SitePlotYear with min 10 observ nights",
+     xlab = "Data Point", ylab = "batpass")
+
+# Add a horizontal line at the mean
+abline(h = mean(df_subset$batpass), col = "red", lty = 2)
+abline(h = 30, col = "red", lty = 1)
+
+
+#distribution of CanOpen variable for the subsetted data
+
+plot(1:nrow(df_subset), df_subset$CanOpen, 
+     pch = 16, cex = 0.3, col = "darkgreen", 
+     main = "Distribution of CanOpen",
+     xlab = "Data Point", ylab = "CanOpen")
+
+# Add a horizontal line at the mean
+abline(h = mean(df_subset$CanOpen), col = "red", lty = 2)
+
+
+
+#Not use this - but just for visual exploration
+df_subset20 <- df_subset
+
+#Replace x observations with values greater than 20 for batpass with 20
+df_subset20$batpass[df_subset20$batpass > 20] <- 20 
+
+#look at subsetted batpass data with max value 20
+par(mfrow = c(1, 1))
+plot(1:nrow(df_subset20), df_subset20$batpass, 
+     pch = 16, col = "blue", 
+     main = "subset SitePlotYear with min 10 observ nights, max value 20",
+     xlab = "Data Point", ylab = "batpass")
+
+# Add a horizontal line at the mean
+abline(h = mean(df_subset20$batpass), col = "red", lty = 2)
+```
+
+
+## Compare site-years for insect abundance and feeding activity 
+"#F57969"
+```{r}
+summary(DF)
+summary(df)
+
+## arrange sites according to increasing PC1 
+df1 <- df %>% 
+  dplyr::mutate(SiteYear = factor(paste0(Site, "-", year))) %>%
+           dplyr::select(c(SitePlotYear, SiteYear, year, Site, CanOpen)) %>%
+  arrange(year, CanOpen) 
+
+sites <- df1 %>% select(SiteYear) %>% distinct()
+neworder <- sites$SiteYear
+df$SiteYear1 <- factor(df$SiteYear, levels = neworder)
+
+# Plot the
+ii <- ggplot(df, aes(x = SiteYear1, y = InsectIndex)) + 
+  geom_boxplot(aes(fill = CanOpen)) + 
+  scale_fill_gradient(low = "#f68678", high = "black") + 
+  scale_x_discrete(labels=c("FF07-2021" = "07", "FF07-2022" = "07-22", 
+                            "FF04-2021" = "04-21", "FF04-2022" = "04-22", 
+                            "FF05-2021" = "05-21", "FF05-2022" = "05-22", 
+                            "FF02-2021" = "02-21", "FF02-2022" = "02-22", 
+                            "FF08-2021" = "08-21", "FF08-2022" = "08-22", 
+                            "FF11-2021" = "11-21", "FF11-2022" = "11-22", 
+                            "FF01-2021" = "01-21", "FF01-2022" = "01-22", 
+                            "FF03-2021" = "03-21", "FF03-2022" = "03-22", 
+                            "FF12-2021" = "12-21", "FF12-2022" = "12-22", 
+                            "FF06-2021" = "06-21", "FF06-2022" = "06-22", 
+                            "FF09-2021" = "09-21", "FF09-2022" = "09-22", 
+                            "FF10-2021" = "10-21", "FF10-2022" = "10-22")) + 
+  theme_minimal() + 
+  theme(legend.position = "bottom") +
+  guides(fill=guide_legend(title="Canopy openness")) + 
+  xlab("") + ylab("Insect index") 
+ii 
+
+bb <- ggplot(df, aes(x = SiteYear1, y = batpass)) + 
+  geom_boxplot(aes(fill = CanOpen)) + 
+  scale_fill_gradient(low = "#f68678", high = "black") +
+  scale_x_discrete(labels=c("FF07-2021" = "07", "FF07-2022" = "07-22", 
+                            "FF04-2021" = "04-21", "FF04-2022" = "04-22", 
+                            "FF05-2021" = "05-21", "FF05-2022" = "05-22", 
+                            "FF02-2021" = "02-21", "FF02-2022" = "02-22", 
+                            "FF08-2021" = "08-21", "FF08-2022" = "08-22", 
+                            "FF11-2021" = "11-21", "FF11-2022" = "11-22", 
+                            "FF01-2021" = "01-21", "FF01-2022" = "01-22", 
+                            "FF03-2021" = "03-21", "FF03-2022" = "03-22", 
+                            "FF12-2021" = "12-21", "FF12-2022" = "12-22", 
+                            "FF06-2021" = "06-21", "FF06-2022" = "06-22", 
+                            "FF09-2021" = "09-21", "FF09-2022" = "09-22", 
+                            "FF10-2021" = "10-21", "FF10-2022" = "10-22")) + 
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  xlab("") + ylab("Myotis feeding activity") 
+bb
+
+
+cowplot::plot_grid(bb, ii, nrow = 2, labels = c("a.", "b."))
+
+```
+
+
+
+## Fit a GAM - feeding activity subset 
+```{r}
+#I did run GAMMs with df_subset20 (not included in this R script) but df_subset also provided a good fit to the data
+#So we will use the df_subset without pruning values >20 to 20
+
+summary(dfs)
+m1nb <- gam(batpass ~ s(InsectIndex) + year + s(Site, bs = "re"), metod="REML",family= "nb()",  data = dfs)
+
+m2nb <- gam(batpass ~ s(InsectIndex) + s(InsectIndex,CanOpen) + year + s(Site, bs = "re"), metod="REML", family= "nb()",data = dfs)
+
+m3nb <- gam(batpass ~ s(InsectIndex,CanOpen) + year + s(Site, bs = "re"), metod="REML",family= "nb()", data = dfs)
+
+m1zip <- gam(batpass ~ s(InsectIndex) + year + s(Site, bs = "re"), metod="REML",family= "ziP()",  data = dfs)
+
+m2zip <- gam(batpass ~ s(InsectIndex) + s(InsectIndex,CanOpen) + year + s(Site, bs = "re"), metod="REML", family= "ziP()",data = dfs)
+
+m3zip <- gam(batpass ~ s(InsectIndex,CanOpen) + year + s(Site, bs = "re"), metod="REML",family= "ziP()", data = dfs)
+
+#Compare models
+AIC(m1nb,m2nb, m3nb, m1zip, m2zip, m3zip)
+#            df      AIC
+#
+#m1nb  18.98071 1179.388 
+#m2nb  25.69126 1171.545 *Low
+#m3nb  25.41831 1170.999 *Lowest
+#m1zip 22.76598 1661.923
+#m2zip 40.77491 1505.054
+#m3zip 40.77487 1505.055
+
+summary(m1nb)
+summary(m2nb)
+summary(m3nb)
+par(mfrow = c(2, 2))
+gam.check(m1nb) #k index too low
+par(mfrow = c(2, 2))
+gam.check(m2nb) #looks good
+par(mfrow = c(2, 2))
+gam.check(m3nb) #looks good
+
+
+### Supplementary materials 
+
+#######################################################################################
+######### Use a 3D plot for the paper #################################################
+#######################################################################################
+
+#Prediction for all Sites and both years
+new_data <- expand.grid(
+  InsectIndex = seq(min(dfs$InsectIndex), max(dfs$InsectIndex), length.out = 50),
+  CanOpen = unique(dfs$CanOpen),
+  year = unique(dfs$year),
+  Site = unique(dfs$Site))
+
+# Make predictions
+predictions <- predict(m3nb, new_data, type = "response", se.fit = TRUE)
+
+# Extract predicted values and standard errors
+pred_values <- predictions$fit
+se <- predictions$se.fit
+
+# Combine predictions with grid data
+prediction_data <- cbind(new_data, pred_values, se)
+
+# head(prediction_data)
+# tail(prediction_data)
+# # Create a 3D surface plot with rgl
+with(prediction_data, {
+  plot3d(CanOpen, InsectIndex, matrix(pred_values, ncol = length(unique(prediction_data$InsectIndex))),
+         col = terrain.colors(100), type = "h", size = 0.5,
+         xlab = "canopy openness", ylab = "insect abundance", zlab = "batpass",
+         main = "")
+  rgl.postscript("3d_plot.eps", fmt = "eps")
+})
+
+
+
+###### use plot_ly to try to get a slightly nicer visualization 
+
+length(unique(prediction_data$CanOpen)) # 17 
+length(unique(prediction_data$InsectIndex)) # 50 
+
+
+#z <- matrix(predict(m3nb, newdata = new_data), 374, 50)
+InsectIndex = seq(min(dfs$InsectIndex), max(dfs$InsectIndex), length.out = 15) 
+CanOpen = unique(dfs$CanOpen)
+#18700/50
+
+
+summary(dfs$batpass)
+summary(prediction_data$pred_values)
+dfs$batpass1 <- dfs$batpass
+dfs$batpass1[dfs$batpass1 > 42] <- 40 
+# Makes it possible to plot the raw data in the same range as the predictions. 
+
+z <- matrix(pred_values, ncol = 5)
+plot_ly(x = ~CanOpen, y = ~new_data$InsectIndex, z = z, type = "surface") %>%
+  layout(
+    scene = list(
+      xaxis = list(title = "Canopy openness"),
+      yaxis = list(title = "Insect index"),
+      zaxis = list(title = "Feeding passes per night"))) %>% 
+  add_markers(x = ~dfs$CanOpen, y= ~dfs$InsectIndex, z=dfs$batpass1)  
+
+ve(path = output_today, filename = "FeedingGAMPred.tiff", width = 12, height = 8, device='tiff', dpi=600) 
+
+summary(dfs$CanOpen)
+summary(new_data$CanOpen)
+summary(prediction_data$CanOpen)
+summary(CanOpen)
+
+summary(dfs$InsectIndex)
+summary(new_data$InsectIndex)
+summary(prediction_data$InsectIndex)
+summary(InsectIndex)
+
+summary(dfs$batpass)
+summary(prediction_data$pred_values)
+
+```
+
+
+
+
+## Figure 3 - Insect abundance vs canopy openness 
+```{r}
+
+# Levels to exclude: < 10 observation nights per SitePlotYear
+# excluded_levels <- c('FF03-OB-2021', 'FF03-OB-2022', 'FF05-OB-2022', 'FF06-OB-2022', 'FF08-OB-2022', 'FF11-OB-2021')
+myot <- subset(mydata, manual.id == "MYOT" & behavior %in% c("Feeding", "Commuting")) 
+myots <- myot %>% dplyr::filter(!SitePlotYear %in% c('FF03-OB-2021', 'FF03-OB-2022', 'FF05-OB-2022', 'FF06-OB-2022', 'FF08-OB-2022', 'FF11-OB-2021')) %>% droplevels()
+myots$II <- myots$InsectIndex
+myots$II[myots$II > 2] <- 2 
+# from 803 obs to 728
+
+ggplot(myots, aes(x = CanOpen, y = II)) + 
+  geom_count(color = "#F57969", size = 3, alpha = 0.7) + 
+  stat_poly_line(color = "black") +
+  stat_poly_eq() +
+  theme_classic() + 
+  theme(text = element_text(size=20)) + 
+  xlab("Canopy openness") + ylab("Insect index")
+
+ve(path = output_today, filename = "InsectIndexvsCO.tiff", width = 12, height = 8, device='tiff', dpi=600) 
+
+# ## Very similar for bats 
+# ggplot(dfs, aes(x = CanOpen, y = batpass)) + 
+#   geom_count(color = "#F57969", size = 2, alpha = 0.5) + 
+#   stat_poly_line(color = "black") +
+#   stat_poly_eq() +
+#   theme_minimal() + 
+#   xlab("Canopy openness") + ylab("bat passes")
+
+```
+
+## Feeding and Commuting together 
+```{r}
+
+head(myots)
+summary(myots)
+names(myots)
+myots$behavior <- factor(myots$behavior)
+
+myots.f <- myots %>% filter(behavior == "Feeding") %>% droplevels()
+myots.c <- myots %>% filter(behavior == "Commuting") %>% droplevels()
+
+## II is the same as Insect Index but all values over 2 are converted to 2 
+
+#Using the same model as were best for subset Feeding only
+#Adding behavior
+m1nb <- gam(batpass ~ s(II, by = behavior) + s(II,CanOpen, by = behavior) + behavior + year + s(Site, bs = "re"), metod="REML", family= "nb()",data = myots)
+
+m2nb <- gam(batpass ~ s(II, CanOpen, by = behavior) + behavior + year + s(Site, bs = "re"), metod="REML", family= "nb()",data = myots)
+
+AIC(m1nb,m2nb)
+#        df      AIC
+#m1nb 45.04046 3403.364
+#m2nb 44.29870 3401.880
+
+summary(m1nb)
+summary(m2nb)
+
+par(mfrow = c(2, 2))
+gam.check(m1nb) #not horrible, but k values a bit low
+
+par(mfrow = c(2, 2))
+gam.check(m2nb) 
+ 
+
+#######################################################################################
+######### Use a 3D plot for the paper #################################################
+#######################################################################################
+
+#Predictions
+new_data <- expand.grid(
+  II = seq(min(myots$II), max(myots$II), length.out = 30),
+  CanOpen = unique(myots$CanOpen),
+  year = unique(myots$year),
+  behavior = unique(myots$behavior),
+  Site = unique(myots$Site))
+
+# Make predictions
+predictions <- predict(m2nb, new_data, type = "response", se.fit = TRUE)
+
+# Extract predicted values and standard errors
+pred_values <- predictions$fit
+se <- predictions$se.fit
+
+# Combine predictions with grid data
+prediction_data <- cbind(new_data, pred_values, se)
+
+head(prediction_data)
+tail(prediction_data)
+
+#I export the predicted data to Excel
+# write.table(prediction_data, file = 'predictiondata.csv', col.names = TRUE,
+#             row.names = FALSE, sep = ",")
+
+#And import them into R again
+# pred <-read.csv("predictiondata.csv",sep=",", dec=".", header=TRUE) #----LOAD THE DATA
+
+pred <- prediction_data
+
+head(pred)
+tail(pred)
+pred.f <- subset(pred, behavior  == "Feeding")
+pred.c <- subset(pred, behavior  == "Commuting")
+
+dim(pred)
+dim(pred.f )
+dim(pred.c)
+
+range.pred.f <- range(pred.f$pred_values) #[1]  0.005557207 47.581870157
+range.pred.c <- range(pred.c$pred_values) #[1]   0.03091761 206.79674714
+
+#Prediction plot for Commuting
+# Create a 3D surface plot with rgl
+with(pred.c, {
+  plot3d(CanOpen, II, matrix(pred_values, ncol = length(unique(pred.c$II))),
+         col = terrain.colors(100), type = "h", size = 0.5, 
+         xlab = "canopy openness", ylab = "insect abundance", zlab = "batpass",
+         main = "")
+  rgl.postscript("3d_plot_commuting.eps", fmt = "eps")
+})
+
+#Prediction plot for Feeding
+# Create a 3D surface plot with rgl
+with(pred.f, {
+  plot3d(CanOpen, II, matrix(pred_values, ncol = length(unique(pred.f$II))),
+         col = terrain.colors(100), type = "h", size = 0.5, 
+         xlab = "canopy openness", ylab = "insect abundance", zlab = "batpass",
+         main = "")
+  rgl.postscript("3d_plot_feeding.eps", fmt = "eps")
+})
+
+
+
+### Now with plot_ly 
+
+
+### Feeding activity alone 
+#########################################################
+#z <- matrix(predict(m3nb, newdata = new_data), 374, 50)
+InsectIndex = seq(min(pred.f$II), max(pred.f$II), length.out = 15) 
+CanOpen = unique(pred.f$CanOpen)
+
+
+summary(myots$batpass)
+summary(pred.f$pred_values) # max = 47
+myots.f$batpass1 <- myots.f$batpass
+myots.f$batpass1[myots.f$batpass1 > 47] <- 47
+
+myots$batpass1 <- myots$batpass
+myots$batpass1[myots$batpass1 > 47] <- 47
+# Makes it possible to plot the raw data in the same range as the predictions. 
+
+z <- matrix(pred.f$pred_values, ncol = 5)
+plot_ly(x = ~CanOpen, y = ~InsectIndex, z = z, type = "surface") %>%
+  layout(
+    scene = list(
+      xaxis = list(title = "Canopy openness"),
+      yaxis = list(title = "Insect index"),
+      zaxis = list(title = "Feeding passes per night"))) %>%  
+  #option to plot with raw(ish) data
+  add_markers(x = ~myots.f$CanOpen, y= ~myots.f$II, z=myots.f$batpass1) 
+
+# ggsave(path = output_today, filename = "FeedingGAM_Results_Pred.tiff", width = 12, height = 8, device='tiff', dpi=600) 
+
+
+### Commuting activity alone 
+#########################################################
+#z <- matrix(predict(m3nb, newdata = new_data), 374, 50)
+InsectIndex = seq(min(pred.c$II), max(pred.c$II), length.out = 15) 
+CanOpen = unique(pred.c$CanOpen)
+
+
+summary(myots$batpass)
+summary(pred.c$pred_values) # max = 47
+myots.c$batpass1 <- myots.c$batpass
+myots.c$batpass1[myots.c$batpass1 > 200] <- 200
+# Makes it possible to plot the raw data in the same range as the predictions. 
+11220/30
+
+z <- matrix(pred.c$pred_values, ncol = 20)
+plot_ly(x = ~CanOpen, y = ~InsectIndex, z = z, type = "surface") %>%
+  layout(
+    scene = list(
+      xaxis = list(title = "Canopy openness"),
+      yaxis = list(title = "Insect index"),
+      zaxis = list(title = "Feeding passes per night"))) %>%  
+  #option to plot with raw(ish) data
+  add_markers(x = ~myots.c$CanOpen, y= ~myots.c$II, z=myots.c$batpass1) 
+
+# ggsave(path = output_today, filename = "FeedingGAM_Results_Pred.tiff", width = 12, height = 8, device='tiff', dpi=600) 
+
+
+```
+
