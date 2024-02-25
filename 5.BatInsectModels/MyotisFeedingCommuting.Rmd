@@ -561,15 +561,17 @@ plot(pred_values, color = "viridis")
 #plot(pred_values, color = "viridis", palette = "plasma")
 plot(pred_values, color = "viridis") +
   ggtitle("") +
-  labs(x = "Insect abundance", y = "Batpass", color= "Canopy opennes") +
-  theme(text = element_text(size = 12),    # Adjust the overall text size
-        axis.title = element_text(size = 16),  # Adjust the axis title size
-        axis.text = element_text(size = 14),   # Adjust the axis text size
-        legend.text = element_text(size = 14), # Adjust the legend text size
-        legend.title = element_text(size = 16),# Adjust the legend title size
+  labs(x = "Insect abundance", y = "Bat passes per night", color= "Canopy opennes") +
+  theme(text = element_text(size = 25),    # Adjust the overall text size
+        axis.title = element_text(size = 20),  # Adjust the axis title size
+        axis.text = element_text(size = 20),   # Adjust the axis text size
+        legend.text = element_text(size = 20), # Adjust the legend text size
+        legend.title = element_text(size = 20),# Adjust the legend title size
         legend.position = "bottom", # Place the legend at the bottom
-        strip.text = element_text(size = 16)  # Adjust the panel heading font size)
+        strip.text = element_text(size = 25)  # Adjust the panel heading font size)
   )
+
+ggsave(path = output_today, filename = "Fig6.tiff", width = 12, height = 8, device='tiff', dpi=300)  
 
 #####################
 
@@ -578,14 +580,14 @@ plot(pred_values, color = "viridis") +
 pred_values1 <- ggpredict(M2nbREML, c("InsectIndex", "behavior"))
 # Create prediction plot for the first panel
 plotpred_values1 <- plot(pred_values1) +
-  labs(x = "Insect abundance", y = "Bat passes per night") + # Change the legend title here
+  labs(x = "Insect abundance", y = "Bat passes per night") +
   theme(
-    text = element_text(size = 20),    # Adjust the overall text size
-    axis.title = element_text(size = 18),  # Adjust the axis title size
-    axis.text = element_text(size = 18),   # Adjust the axis text size
+    text = element_text(size = 25),    # Adjust the overall text size
+    axis.title = element_text(size = 20),  # Adjust the axis title size
+    axis.text = element_text(size = 20),   # Adjust the axis text size
     legend.position = "none") + 
-  ggtitle("Predicted number of bat passes per night")
-  
+  ggtitle("a.")
+
 
 # Generate predicted values for the second panel
 pred_values2 <- ggpredict(M2nbREML, c("CanOpen", "behavior"))
@@ -593,18 +595,19 @@ pred_values2 <- ggpredict(M2nbREML, c("CanOpen", "behavior"))
 plotpred_values2 <- plot(pred_values2) +
   labs(x = "Canopy openness", y = "", color = "Behavior") +
   theme(
-    text = element_text(size = 20),    # Adjust the overall text size
-    axis.title = element_text(size = 18),  # Adjust the axis title size
-    axis.text = element_text(size = 18),   # Adjust the axis text size
+    text = element_text(size = 25),    # Adjust the overall text size
+    axis.title = element_text(size = 20),  # Adjust the axis title size
+    axis.text = element_text(size = 20),   # Adjust the axis text size
     legend.position = "none") + 
-  ggtitle("") 
+  ggtitle("b.") 
 plotpred_values2
 ## Export this with the legend to combine back later 
 
 # ggsave(path = output_today, filename = "Fig7_legend.tiff", width = 15, height = 8, device='tiff', dpi=300)
 
 # Arrange the plots side by side
-combined_plot2 <- cowplot::plot_grid(plotpred_values1, plotpred_values2, ncol = 2, labels = c("a.", "b.")) 
+combined_plot2 <- cowplot::plot_grid(plotpred_values1, plotpred_values2, ncol = 2) 
+                                    
 combined_plot2
 
 ggsave(path = output_today, filename = "Fig7.tiff", width = 15, height = 8, device='tiff', dpi=300)
