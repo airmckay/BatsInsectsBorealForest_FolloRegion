@@ -125,11 +125,11 @@ map1 <- leaflet(tpt1) %>%
   addCircleMarkers(radius = 7, color =  ~factpal(Monitoring),
                        fillOpacity = 1,  stroke = FALSE) %>% 
   addMiniMap(
-    position = "bottomright",
-    tiles = "CartoDB.VoyagerNoLabels",
+    position = "topright",
+    tiles = "CartoDB.PositronNoLabels",
     zoomLevelOffset = -7.8, width = 300, height = 300,
     collapsedWidth = 100, collapsedHeight = 100) %>%
-  addScaleBar(position = "bottomright")
+  addScaleBar(position = "topright")
 
 map1
 
