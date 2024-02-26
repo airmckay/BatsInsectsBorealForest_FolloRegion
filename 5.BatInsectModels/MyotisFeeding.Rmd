@@ -141,15 +141,13 @@ cat("Percent of rows with value 0 for InsectIndex:", percent_zeros)
 ## Exploration - transform insect index > 2 = 2 
 ```{r}
 #distribution of values
-plot(1:nrow(DF), DF$InsectIndex, 
-     pch = 16, col = "blue", 
-     main = "Distribution of InsectIndex",
-     xlab = "Data Point", ylab = "InsectIndex")
-
-# Add a horizontal line at the mean
-abline(h = mean(DF$InsectIndex), col = "red", lty = 2)
-
-
+# plot(1:nrow(DF), DF$InsectIndex, 
+#      pch = 16, col = "blue", 
+#      main = "Distribution of InsectIndex",
+#      xlab = "Data Point", ylab = "InsectIndex")
+# 
+# # Add a horizontal line at the mean
+# abline(h = mean(DF$InsectIndex), col = "red", lty = 2)
 
 range(DF$InsectIndex)
 df <- DF
@@ -480,7 +478,6 @@ gam.check(M1nbREML)
 
 ## Plotting predictions
 ```{r}
-
 #This is my final model
 summary(m1nbREML)
 #This is my final model unstandardized
@@ -781,7 +778,7 @@ plotpredictionsmCanOpen2 <- plot(predictionsmCanOpen) +
   
   geom_point(data = df, aes(x = CanOpen, y = InsectIndex), 
              size = 2, alpha = 0.3,  # Adjust transparency (0: completely transparent, 1: fully opaque)
-             color = "#62302a") + 
+             color = "#f57969") + 
   xlim(c(0.16, 0.55)) 
 print(plotpredictionsmCanOpen2)
 figs2b <- plotpredictionsmCanOpen2

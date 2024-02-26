@@ -103,6 +103,10 @@ bats <- bats %>% dplyr::mutate(jnight = yday(night),
 
 summary(bats)
 
+summary(bats$s.PC1)
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# -2.9250 -0.5261  0.2258  0.0000  0.6270  1.9511 
+
 dim(bats)
 # 244470     33
 sum(bats$batpass)
@@ -204,27 +208,27 @@ dim(mydf)
 ## Myotis species - Model selection 
 ```{r}
 #' Apply the Poisson GLMM.
-MY1 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
-              family = "poisson",
-              data = mydf)
-
-#
-# #' This is the ZIP GLMM.
-MY2 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
-              family = "poisson",
-              ziformula = ~1,
-              data = mydf)
-
-#' This is the GP GLMM:
-MY3 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
-              family = "genpois",
-              ziformula = ~0,
-              data = mydf)
-#
-MY3b <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
-              family = "genpois",
-              ziformula = ~1,         
-              data = mydf)
+# MY1 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+#               family = "poisson",
+#               data = mydf)
+# 
+# #
+# # #' This is the ZIP GLMM.
+# MY2 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+#               family = "poisson",
+#               ziformula = ~1,
+#               data = mydf)
+# 
+# #' This is the GP GLMM:
+# MY3 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+#               family = "genpois",
+#               ziformula = ~0,
+#               data = mydf)
+# #
+# MY3b <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+#               family = "genpois",
+#               ziformula = ~1,         
+#               data = mydf)
 
 # #' This is the NB GLMM:
 MY4 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
@@ -233,29 +237,29 @@ MY4 <- glmmTMB(batpass ~ PlotType*s.PC1*season + s.temperature + s.rainfall + ye
               data = mydf)
 
 
-MY4b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
-              family = "nbinom2",
-              ziformula = ~1,
-              data = mydf)
-
-
-#' Who is the best so far?
-AIC(MY1, MY2, MY3, MY3b, MY4, MY4b)
+# MY4b <- glmmTMB(batpass ~ PlotType*season + s.temperature + s.rainfall + year + (1|Site) + (1|jnight.f) ,
+#               family = "nbinom2",
+#               ziformula = ~1,
+#               data = mydf)
+# 
+# 
+# #' Who is the best so far?
+# AIC(MY1, MY2, MY3, MY3b, MY4, MY4b)
 # MY1  23 132301.39
 # MY2  24 112325.01
 # MY3  24  43702.74
 # MY3b 25  43668.78 * Best 
 # MY4  24  43998.66
 # MY4b 16  44536.75
-beep()
+#beep()
 
-summary(MY1)
-
-tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
-          show.stat = TRUE, transform = NULL)
-
-tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
-          show.stat = TRUE, transform = NULL, file = file.path(output_today, "MyotisTotal_M3b_summary.doc"))
+# summary(MY1)
+# 
+# tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
+#           show.stat = TRUE, transform = NULL)
+# 
+# tab_model(MY3b, show.est = TRUE, show.se = TRUE, 
+#           show.stat = TRUE, transform = NULL, file = file.path(output_today, "MyotisTotal_M3b_summary.doc"))
 
 ```
 
@@ -314,7 +318,8 @@ testZeroInflation(MY3b)
 ```{r}
 #Predict for all nights
 summary(mydf)
-
+summary(mydf$s.PC1)
+# 0.2258  
 
 # # Create a data frame with all combinations of PlotType, season, and behavior
 newdata.m <- data.frame(expand.grid(s.PC1 = seq(from = -2.93,

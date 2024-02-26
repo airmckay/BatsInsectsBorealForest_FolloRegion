@@ -139,15 +139,15 @@ cat("Percent of rows with value 0 for InsectIndex:", percent_zeros, "\n")
 
 ```{r}
 #distribution of values
-plot(1:nrow(DF), DF$InsectIndex, 
-     pch = 16, col = "blue", 
-     main = "Distribution of InsectIndex",
-     xlab = "Data Point", ylab = "InsectIndex")
-
-# Add a horizontal line at the mean
-abline(h = mean(DF$InsectIndex), col = "red", lty = 2)
-
-range(DF$InsectIndex)
+# plot(1:nrow(DF), DF$InsectIndex, 
+#      pch = 16, col = "blue", 
+#      main = "Distribution of InsectIndex",
+#      xlab = "Data Point", ylab = "InsectIndex")
+# 
+# # Add a horizontal line at the mean
+# abline(h = mean(DF$InsectIndex), col = "red", lty = 2)
+# 
+# range(DF$InsectIndex)
 df <- DF
 
 #Replace 4 observations with values greater than 2 in InsectIndexCertain with 2
@@ -578,22 +578,27 @@ ggsave(path = output_today, filename = "Fig6.tiff", width = 12, height = 8, devi
 
 # Generate predicted values for the first panel
 pred_values1 <- ggpredict(M2nbREML, c("InsectIndex", "behavior"))
+
 # Create prediction plot for the first panel
-plotpred_values1 <- plot(pred_values1) +
-  labs(x = "Insect abundance", y = "Bat passes per night") +
+plotpred_values1 <- plot(pred_values1, alpha = 0.4, line_size = 1.5) +
+  labs(x = "Insect abundance", y = "") +
+  scale_color_manual(values = c("#F57969", "#62302a")) +
+  scale_fill_manual(values = c("#F57969", "#62302a")) +
   theme(
     text = element_text(size = 25),    # Adjust the overall text size
     axis.title = element_text(size = 20),  # Adjust the axis title size
     axis.text = element_text(size = 20),   # Adjust the axis text size
     legend.position = "none") + 
   ggtitle("a.")
-
+plotpred_values1
 
 # Generate predicted values for the second panel
 pred_values2 <- ggpredict(M2nbREML, c("CanOpen", "behavior"))
 # Create prediction plot for the second panel
-plotpred_values2 <- plot(pred_values2) +
-  labs(x = "Canopy openness", y = "", color = "Behavior") +
+plotpred_values2 <- plot(pred_values2, alpha = 0.4, line_size = 1.5) +
+  xlab("Canopy openness") + ylab("") +
+  scale_color_manual(values = c("#F57969", "#62302a")) +
+  scale_fill_manual(values = c("#F57969", "#62302a")) +
   theme(
     text = element_text(size = 25),    # Adjust the overall text size
     axis.title = element_text(size = 20),  # Adjust the axis title size
@@ -601,7 +606,9 @@ plotpred_values2 <- plot(pred_values2) +
     legend.position = "none") + 
   ggtitle("b.") 
 plotpred_values2
+
 ## Export this with the legend to combine back later 
+#  ggsave(path = output_today, filename = "Fig7b_legend.tiff", width = 15, height = 8, device='tiff', dpi=300)
 
 # ggsave(path = output_today, filename = "Fig7_legend.tiff", width = 15, height = 8, device='tiff', dpi=300)
 
@@ -610,7 +617,16 @@ combined_plot2 <- cowplot::plot_grid(plotpred_values1, plotpred_values2, ncol = 
                                     
 combined_plot2
 
-ggsave(path = output_today, filename = "Fig7.tiff", width = 15, height = 8, device='tiff', dpi=300)
+#ggsave(path = output_today, filename = "Fig7.tiff", width = 15, height = 8, device='tiff', dpi=300)
+
+## For the Kappa
+combined_plot2 <- cowplot::plot_grid(plotpred_values1, plotpred_values2, nrow = 2) 
+                                    
+combined_plot2
+
+ggsave(path = output_today, filename = "Fig7_kapp.tiff", width = 4, height = 6, device='tiff', dpi=300)
+
+
 
 ```
 
